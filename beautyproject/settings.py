@@ -21,7 +21,7 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # BASE_URL = 'https://mindful-beauty.vercel.app'
-BASE_URL = 'https://djangoapp-git-main-mindful-beautys-projects.vercel.app'
+BASE_URL = 'https://mbrestapi-f8cphtgaf7fjdyb0.westcentralus-01.azurewebsites.net/'
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
