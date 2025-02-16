@@ -1,0 +1,581 @@
+{
+	"info": {
+		"_postman_id": "2f927604-97b3-4235-a5a2-a096c1a069e4",
+		"name": "MB-DEV",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "16302862"
+	},
+	"item": [
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Add User",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"\",\r\n    \"email\": \"\",\r\n    \"phone\": \"\",\r\n    \"password\": \"\",\r\n    \"last_login\": null\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/user/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"user",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get User List",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/user/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"user",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Book Appointment",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"appointment_date\": null,\r\n    \"appointment_time\": null,\r\n    \"status\": \"\",\r\n    \"otp\": \"\",\r\n    \"created_at\": null,\r\n    \"user\": null,\r\n    \"provider\": null,\r\n    \"service\": null\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/appointments/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"appointments",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Appointments List",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/appointments/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"appointments",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Make Payments",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"amount\": null,\r\n    \"payment_date\": null,\r\n    \"payment_status\": \"\",\r\n    \"appointment\": null\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/payments/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"payments",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payments Transactions",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/payments/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"payments",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Service Provider Reviews",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"rating\": null,\r\n    \"review\": \"\",\r\n    \"created_at\": null,\r\n    \"staff\": null,\r\n    \"user\": null\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/staffreviews/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"staffreviews",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service Provider Reviews List",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/staffreviews/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"staffreviews",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Service Provider",
+			"item": [
+				{
+					"name": "Add Service Provider",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"\",\r\n    \"role\": \"\",\r\n    \"years_of_experience\": \"\",\r\n    \"rating\": null,\r\n    \"profile_image\": null\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/beauticians/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"beauticians",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service Provider List",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/beauticians/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"beauticians",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add New Service Type",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"\",\r\n    \"description\": \"\",\r\n    \"price\": null,\r\n    \"image\": null\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/services/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"services",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Services List",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"\",\r\n    \"description\": \"\",\r\n    \"price\": null,\r\n    \"image\": null\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/services/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"services",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Service Provider Type",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"provider_id\": null,\r\n    \"service_id\": null\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/serviceprovidertypes/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"serviceprovidertypes",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service Provider Types List",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/serviceprovidertypes/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"serviceprovidertypes",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add New Staff Member",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"\",\r\n    \"role\": \"\",\r\n    \"years_of_experience\": null,\r\n    \"available_slots\": null,\r\n    \"status\": \"\",\r\n    \"created_at\": null,\r\n    \"provider\": null\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/staff/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"staff",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Staff Member List",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/staff/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"staff",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Service Provider Photo",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"image\": null,\r\n    \"service_name\": null\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/photos/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"photos",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Web",
+			"item": [
+				{
+					"name": "Add FAQ",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"question\": \"\",\r\n    \"answer\": \"\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/faqs/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"faqs",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get FAQ List",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"question\": \"\",\r\n    \"answer\": \"\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://djangoapp-git-main-mindful-beautys-projects.vercel.app/api/faqs/",
+							"protocol": "https",
+							"host": [
+								"djangoapp-git-main-mindful-beautys-projects",
+								"vercel",
+								"app"
+							],
+							"path": [
+								"api",
+								"faqs",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

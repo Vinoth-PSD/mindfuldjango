@@ -1,2 +1,2 @@
-# mindfuldjango
-mindfuldjango160225
+"# djangoapp" 
+# sss
