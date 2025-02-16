@@ -100,10 +100,10 @@ WSGI_APPLICATION = 'beautyproject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'retool',  # Replace with your PostgreSQL database name
-        'USER': 'retool',       # Replace with your PostgreSQL username
-        'PASSWORD': 'xyn9uXBZfMl5',   # Replace with your PostgreSQL password
-        'HOST': 'ep-jolly-mouse-a65885wt.us-west-2.retooldb.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
+        'NAME': 'md2025',  # Replace with your PostgreSQL database name
+        'USER': 'mdadmin_2025',       # Replace with your PostgreSQL username
+        'PASSWORD': 'Psd@2025',   # Replace with your PostgreSQL password
+        'HOST': 'md2025.postgres.database.azure.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
         'PORT': '5432',                # Default PostgreSQL port is 5432
     }
 }
