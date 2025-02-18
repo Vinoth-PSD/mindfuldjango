@@ -36,6 +36,7 @@ ALLOWED_HOSTS = ['*']
 
 GOOGLE_MAPS_API_KEY = 'AIzaSyAJMgVfZLEI4QjXqVEQocAmgByXIKgwKwQ'
 
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -98,27 +99,27 @@ WSGI_APPLICATION = 'beautyproject.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'md2025',  # Replace with your PostgreSQL database name
-#         'USER': 'mdadmin_2025',       # Replace with your PostgreSQL username
-#         'PASSWORD': 'Psd@2025',   # Replace with your PostgreSQL password
-#         'HOST': 'md2025.postgres.database.azure.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
-#         'PORT': '5432',                # Default PostgreSQL port is 5432
-#     }
-# }
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'retool',  # Replace with your PostgreSQL database name
-        'USER': 'retool',       # Replace with your PostgreSQL username
-        'PASSWORD': 'xyn9uXBZfMl5',   # Replace with your PostgreSQL password
-        'HOST': 'ep-jolly-mouse-a65885wt.us-west-2.retooldb.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
+        'NAME': 'md2025',  # Replace with your PostgreSQL database name
+        'USER': 'mdadmin_2025',       # Replace with your PostgreSQL username
+        'PASSWORD': 'Psd@2025',   # Replace with your PostgreSQL password
+        'HOST': 'md2025.postgres.database.azure.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
         'PORT': '5432',                # Default PostgreSQL port is 5432
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'retool',  # Replace with your PostgreSQL database name
+#         'USER': 'retool',       # Replace with your PostgreSQL username
+#         'PASSWORD': 'xyn9uXBZfMl5',   # Replace with your PostgreSQL password
+#         'HOST': 'ep-jolly-mouse-a65885wt.us-west-2.retooldb.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
+#         'PORT': '5432',                # Default PostgreSQL port is 5432
+#     }
+# }
 
 # DATABASES = {
 #     "default": {
@@ -162,8 +163,14 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 # STATICFILES_DIRS = os.path.join(BASE_DIR, 'static')
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
+
+# MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
+
+
+MEDIA_URL = f'https://{AZURE_ACCOUNT_NAME}.blob.core.windows.net/{AZURE_CONTAINER}/'
+MEDIA_ROOT = None  # No local file storage needed as we're using Azure
+
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static/')

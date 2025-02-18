@@ -3,6 +3,8 @@ from django.db import connection
 from django.utils import timezone
 import os
 from django.conf import settings
+from django.db.models import Sum
+from .storages import AzureMediaStorage
 
 
 # class Login(models.Model):
@@ -50,8 +52,8 @@ class ServiceProvider(models.Model):
     willing_to_work_holidays = models.TextField(null=True, blank=True)
     otp = models.IntegerField(null=True, blank=True) 
     otp_created_at = models.DateField(auto_now_add=True)  
-    available_credits = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    is_deleted = models.BooleanField(default=False)  # New column
+    available_credits = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_deleted = models.BooleanField(default=False)  # Soft delete field
 
 
 
@@ -176,7 +178,7 @@ class Staff(models.Model):
     role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True)  
     years_of_experience = models.IntegerField(blank=True, null=True)
     available_slots = models.JSONField(null=True, blank=True)
-    status = models.CharField(max_length=20, blank=True, null=True)
+    status = models.CharField(max_length=20, blank=True, null=True)  # Added max_length
     created_at = models.DateTimeField(auto_now_add=True)
     photo = models.ImageField(upload_to='staff_photos/', null=True, blank=True)  # Added ImageField for photo upload
     is_deleted = models.BooleanField(default=False)  # New field for soft deletion
@@ -202,6 +204,9 @@ class Review(models.Model):
         null=True,  
         blank=True,  
     )
+
+
+
 
     class Meta:
         managed=False
@@ -229,7 +234,8 @@ class Category(models.Model):
     category_id= models.AutoField(primary_key=True)
     category_name = models.CharField(max_length=100, unique=True)
     status = models.CharField(max_length=20, default='Active')
-    image = models.ImageField(upload_to='categories/', null=True, blank=True)  
+    #image = models.ImageField(upload_to='categories/', null=True, blank=True)
+    image = models.ImageField(upload_to='categories/', storage=AzureMediaStorage(), null=True, blank=True) 
     is_deleted = models.BooleanField(default=False)  
 
 
@@ -266,7 +272,7 @@ class Services(models.Model):
     service_type = models.IntegerField(null=True, blank=True)
     package_services = models.TextField(null=True, blank=True)
     provider= models.ForeignKey(ServiceProvider, on_delete=models.CASCADE)
-    branch = models.ForeignKey(Branches, on_delete=models.CASCADE, null=True, blank=True)  # Correct ForeignKey
+    branch = models.ForeignKey(Branches, on_delete=models.CASCADE, null=True, blank=True)  
     package_services_ids = models.TextField(null=True, blank=True)  # New field for storing service IDs
     is_deleted = models.BooleanField(default=False)  
 
@@ -279,6 +285,7 @@ class Services(models.Model):
 
     def __str__(self):
         return self.service_name
+
 
 
 class Serviceprovidertype(models.Model):
@@ -340,7 +347,7 @@ class Appointment(models.Model):
     message = models.CharField(max_length=255, null=True, blank=True)  
     stylist = models.ForeignKey('Staff', on_delete=models.SET_NULL, null=True, blank=True, default=None) 
     used_credits = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # New Field
-
+ 
 
 
     class Meta:
@@ -372,6 +379,8 @@ class Payment(models.Model):
     sgst = models.IntegerField()  # SGST field as integer
     cgst = models.IntegerField()  # CGST field as integer
     grand_total = models.IntegerField()  # Grand total field as integer
+
+
 
     class Meta:
         managed = False
@@ -426,7 +435,7 @@ class Message(models.Model):
 
     def __str__(self):
         return self.text
-
+    
 class ProviderTransactions(models.Model):
     id = models.AutoField(primary_key=True)
     provider = models.ForeignKey('ServiceProvider', on_delete=models.CASCADE)
@@ -464,6 +473,7 @@ class ProviderTransactions(models.Model):
     def __str__(self):
         return f'Transaction {self.pay_id} - {self.status}'
 
+    
 class AdminUser(models.Model):
     username = models.CharField(max_length=255)
     email = models.EmailField()
@@ -481,7 +491,7 @@ class AdminUser(models.Model):
 
     def __str__(self):
         return self.username
-
+    
 class Coupon(models.Model):
     DISCOUNT_TYPE_CHOICES = [
         ('percentage', 'Percentage'),
@@ -508,6 +518,5 @@ class Coupon(models.Model):
 
     def __str__(self):
         return self.coupon_code
-
 
     

@@ -6,6 +6,7 @@ from datetime import datetime, date
 
 
 
+
 class LoginSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProvider
@@ -64,6 +65,8 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
      service_provider = ServiceProvider.objects.create(**validated_data)
  
      return service_provider
+
+
         
 class SalonDetailsSerializer(serializers.ModelSerializer):
     saloon_location = serializers.CharField(write_only=True) 
@@ -278,6 +281,7 @@ class StaffSerializer(serializers.ModelSerializer):
             return None  # Return None if no role is assigned or the role doesn't exist
         return None  # Return None if no role is assigned
 
+
     
 class StaffCreateSerializer(serializers.ModelSerializer):
     branch_id = serializers.IntegerField(write_only=True)  # Add branch_id as a write-only field
@@ -314,6 +318,8 @@ class StaffCreateSerializer(serializers.ModelSerializer):
 
         # Create and return the Staff instance
         return Staff.objects.create(**validated_data)
+
+
 
     
 class BranchSerializer(serializers.ModelSerializer):
@@ -381,6 +387,8 @@ class BranchListSerializer(serializers.ModelSerializer):
             return None
         except AttributeError:
             return None
+
+
         
 class ReviewSerializer(serializers.ModelSerializer):
     created_at_formatted = serializers.SerializerMethodField()
@@ -413,8 +421,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         return obj.service_objects if hasattr(obj, 'service_objects') else []   
 
     def get_created_at_formatted(self, obj):
-        return obj.created_at.strftime("%d %B %Y") if obj.created_at else None      
-        
+        return obj.created_at.strftime("%d %B %Y") if obj.created_at else None   
 
 class ServicesSerializer(serializers.ModelSerializer):
     class Meta:
@@ -490,6 +497,7 @@ class ProviderTransactionSerializer(serializers.ModelSerializer):
             parsed_date = datetime.strptime(obj.date, "%d-%m-%Y").date()
             return parsed_date.strftime("%d %b %Y")
         return obj.date  # Return as is if it's neither date nor a correctly formatted string
+    
 
 class ReviewStatusSerializer(serializers.Serializer):
     review_id = serializers.IntegerField()
@@ -608,9 +616,11 @@ class AddPackageServiceSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data['service_id'] = instance.service_id
         data['package_name'] = instance.service_name  
-        data['branch_id'] = instance.branch_id  # Add branch_id to the response
-
+        data['branch_id'] = instance.branch_id  
         return data
+
+
+
 
 
 class PackagesSerializer(serializers.ModelSerializer):
@@ -690,9 +700,7 @@ class ProviderDetailsSerializer(serializers.ModelSerializer):
     def get_longitude(self, obj):
         branch = Branches.objects.filter(provider=obj, is_deleted=False).first()
         return branch.location.longitude if branch and branch.location else None
-
-
-
+    
 class AppointmentSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.name')
     user_phone = serializers.CharField(source='user.phone')
@@ -758,7 +766,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             return obj.provider.name  # Assuming 'provider' is a ForeignKey to a Provider model
         return None
 
-
+    
 class SubcategoriesSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.category_name', read_only=True)
 
@@ -846,3 +854,4 @@ class CouponsSerializer(serializers.ModelSerializer):
             data['discount_value'] = f"{int(instance.discount_value)}%"  # Remove decimal places
         
         return data
+    

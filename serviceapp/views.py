@@ -23,20 +23,33 @@ import json
 from django.shortcuts import get_object_or_404
 from django.db import connection
 from django.db.models import F, Sum
+from django.http import HttpResponse
+from xhtml2pdf import pisa
+import io
+from django.template import Template, Context
 from rest_framework import status as http_status
 from decimal import Decimal
+from django.db import transaction
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import ValidationError
+import razorpay
+import hmac
+import hashlib
+from django.conf import settings
+from django.utils.timezone import now
+
 
 
 
 class LoginViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         phone = request.data.get('phone')  # Get phone number from request
-        
+
         if not phone:
-            return Response({'error': 'Phone number is required'}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response({'status': 'failure', 'message': 'Phone number is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        otp_target = None  # Initialize OTP target
+
         # Check if the phone number belongs to a ServiceProvider
         try:
             provider = ServiceProvider.objects.get(phone=phone, status="Active")
@@ -59,14 +72,28 @@ class LoginViewSet(viewsets.ModelViewSet):
                     "status": "failure",
                     "message": "You don't have permission to login"
                 }, status=status.HTTP_404_NOT_FOUND)
+
+        # Generate 4-digit OTP
+        otp = ''.join(random.choices(string.digits, k=4))
         
-        # Set OTP and update timestamp
-        otp_target.otp = '1234'  # Default OTP value (In production, use a random generator)
-        otp_target.otp_created_at = timezone.now()  # Update timestamp
+        # Save OTP and timestamp
+        otp_target.otp = otp
+        otp_target.otp_created_at = timezone.now()
         otp_target.save()
 
-        message = 'OTP updated successfully'
-        return Response({'status': 'success', 'otp': otp_target.otp, 'message': message}, status=status.HTTP_200_OK)
+        # Send OTP via SMS
+        sms = MindfulBeautySendSMS()
+        provider_name = otp_target.name if isinstance(otp_target, ServiceProvider) else "User"
+        sms_response = sms.send_sms(provider_name, otp, phone)
+
+        print(sms_response)  # Debugging
+
+        return Response({
+            "status": "success",
+            "otp": otp,
+            "message": "OTP sent successfully"
+        }, status=status.HTTP_200_OK)
+    
 
     @action(detail=False, methods=['post'], url_path='verify-otp')
     def verify_otp(self, request, *args, **kwargs):
@@ -148,12 +175,14 @@ class LoginViewSet(viewsets.ModelViewSet):
                     }
                 except Permissions.DoesNotExist:
                     permissions_data = permissions_data_default  # Use default permissions if not found
+                
     
             if is_staff:
                  # Fetch provider and role information
                  provider_entry = getattr(otp_target, 'provider', None)
                  role_entry = getattr(otp_target, 'role', None)
-                          
+             
+             
                  response_data.update({
                      'staff_id': otp_target.staff,
                      'role_id': role_entry.role_id if role_entry else None,
@@ -168,7 +197,6 @@ class LoginViewSet(viewsets.ModelViewSet):
                     'provider_id': otp_target.provider_id,
 
                 })
-    
     
             return Response(response_data, status=status.HTTP_200_OK)
         else:
@@ -234,6 +262,8 @@ class LoginViewSet(viewsets.ModelViewSet):
                     'cancelled': permissions.cancelled,
                 }
             }, status=status.HTTP_200_OK)
+        
+
     
 #Registration        
 class RegisterServiceProvider(APIView):
@@ -376,7 +406,6 @@ class ProviderTaxInfo(APIView):
 
         except ServiceProvider.DoesNotExist:
             print(f"Provider with ID {provider_id} not found")
-
 
 class RoleViewSet(viewsets.ModelViewSet):
     """
@@ -559,6 +588,7 @@ class CustomPagination(PageNumberPagination):
     page_size_query_param = 'page_size'  # Clients can specify page size using ?page_size=20
     max_page_size = 100 
 
+
 #Branch Management
 class BranchListView(APIView):
     def get(self, request, provider_id=None):
@@ -695,67 +725,69 @@ class BranchDetailView(APIView):
         return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
 
     def put(self, request):
-       # Retrieve `branch_id` from the request body
-        branch_id = request.data.get("branch_id")
-        if not branch_id:
-            return Response({"status": "error", "error": "Branch ID is required."}, status=status.HTTP_400_BAD_REQUEST)
-    
-        branch = self.get_object(branch_id)
-        if not branch:
-            return Response({"status": "error", "error": "Branch not found"}, status=status.HTTP_404_NOT_FOUND)
-    
-        # Combine request data with any uploaded files
-        data = request.data.copy()
-        if request.FILES:
-            data.update(request.FILES)
-    
-        # Update related location fields if provided
-        if 'location' in data:
-            city_name = data.get('location')
-            try:
-                # Retrieve the first location matching the city name
-                location = Locations.objects.filter(city=city_name).first()
-                if not location:
-                    return Response(
-                        {"status": "error", "error": f"Location with city name '{city_name}' not found."}, 
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                
-                # Update location details if 'branch_address' is provided
-                if 'branch_address' in data:
-                    location.address_line1 = data.get('branch_address')
-    
-                # Update latitude and longitude if provided
-                latitude = data.get('latitude')
-                longitude = data.get('longitude')
-    
-                if latitude is not None:
-                    location.latitude = latitude
-                if longitude is not None:
-                    location.longitude = longitude
-    
-                location.save()  # Save updated location
-                
-                # Use location_id for updating the branch
-                data['location'] = location.location_id
-            except Exception as e:
-                return Response(
-                    {"status": "error", "error": f"Error updating location: {str(e)}"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-    
-        # Serialize and update branch
-        serializer = BranchesSerializer(branch, data=data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(
-                {"status": "success", "message": "Branch updated successfully!"}, 
-                status=status.HTTP_200_OK
-            )
-        return Response(
-            {"status": "error", "errors": serializer.errors}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    # Retrieve `branch_id` from the request body
+     branch_id = request.data.get("branch_id")
+     if not branch_id:
+         return Response({"status": "error", "error": "Branch ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+ 
+     branch = self.get_object(branch_id)
+     if not branch:
+         return Response({"status": "error", "error": "Branch not found"}, status=status.HTTP_404_NOT_FOUND)
+ 
+     # Combine request data with any uploaded files
+     data = request.data.copy()
+     if request.FILES:
+         data.update(request.FILES)
+ 
+     # Update related location fields if provided
+     if 'location' in data:
+         city_name = data.get('location')
+         try:
+             # Retrieve the first location matching the city name
+             location = Locations.objects.filter(city=city_name).first()
+             if not location:
+                 return Response(
+                     {"status": "error", "error": f"Location with city name '{city_name}' not found."}, 
+                     status=status.HTTP_400_BAD_REQUEST
+                 )
+             
+             # Update location details if 'branch_address' is provided
+             if 'branch_address' in data:
+                 location.address_line1 = data.get('branch_address')
+ 
+             # Update latitude and longitude if provided
+             latitude = data.get('latitude')
+             longitude = data.get('longitude')
+ 
+             if latitude is not None:
+                 location.latitude = latitude
+             if longitude is not None:
+                 location.longitude = longitude
+ 
+             location.save()  # Save updated location
+             
+             # Use location_id for updating the branch
+             data['location'] = location.location_id
+         except Exception as e:
+             return Response(
+                 {"status": "error", "error": f"Error updating location: {str(e)}"}, 
+                 status=status.HTTP_400_BAD_REQUEST
+             )
+ 
+     # Serialize and update branch
+     serializer = BranchesSerializer(branch, data=data, partial=True)
+     if serializer.is_valid():
+         serializer.save()
+         return Response(
+             {"status": "success", "message": "Branch updated successfully!"}, 
+             status=status.HTTP_200_OK
+         )
+     return Response(
+         {"status": "error", "errors": serializer.errors}, 
+         status=status.HTTP_400_BAD_REQUEST
+     )
+
+
 
 
     def delete(self, request):
@@ -773,6 +805,7 @@ class BranchDetailView(APIView):
         branch.save()
         
         return Response({"status": "success", "message": "Branch deleted successfully!"}, status=status.HTTP_200_OK)
+
 
 
 
@@ -807,6 +840,12 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 review.service_objects = [{"service_id": service.service_id, "service_name": service.service_name} for service in service_objects]
 
         return reviews
+
+
+
+class ServicesViewSet(viewsets.ModelViewSet):
+    queryset = Services.objects.all()
+    serializer_class = ServicesSerializer
 
 #Add Services
 class AddServicesAPIView(APIView):
@@ -908,7 +947,7 @@ class AddServicesAPIView(APIView):
 class ActiveServicesView(APIView):
     def get(self, request, *args, **kwargs):
         provider_id = request.query_params.get("provider_id")
-        branch_id = request.query_params.get("branch_id")  # Now optional
+        branch_id = request.query_params.get("branch_id")  
 
         # Validate required parameters
         if not provider_id:
@@ -978,8 +1017,7 @@ class ActiveServicesView(APIView):
             response_data.append(category_data)
 
         return Response(response_data, status=200)
-
-
+    
 #copyservices
 class CopyBranchServicesAPIView(APIView):
     def post(self, request):
@@ -1139,12 +1177,13 @@ class ProviderServicesView(APIView):
             if branch_id != 0:  # Only apply branch_id filter if it's not 0
                 filters["branch_id"] = branch_id
 
-             # Order services by `id` in descending order (recently added first)
+            # Order services by `id` in descending order (recently added first)
             services = (
                 Serviceprovidertype.objects.filter(**filters)
                 .order_by('service_id', '-provider_service_id')  # The `service_id` must be the first field in `order_by`
                 .distinct('service_id')  # Ensure unique services by `service_id`
             )
+
 
             # If no services are found, return a message
             if not services.exists():
@@ -1209,7 +1248,8 @@ class ProviderServicesView(APIView):
                 'branch_id': service_provider.branch_id  
             })
         return service_data
-        
+
+
 #Update Services   
 class UpdateActiveServicesView(APIView):
     def put(self, request):
@@ -1365,6 +1405,7 @@ class DeleteServiceAPIView(APIView):
                 {"status": "failure", "message": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
         
 #Role management
 class PermissionsAPIView(APIView):
@@ -1435,6 +1476,7 @@ class RoleProviderPermissionsAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
+
 
 #Appointment list 
 class AppointmentListView(APIView):
@@ -1572,6 +1614,7 @@ class AppointmentListView(APIView):
         return paginator.get_paginated_response(data)
 
 
+
 #Modify status
 class ModifyAppointmentStatus(APIView):
     def put(self, request, *args, **kwargs):
@@ -1607,7 +1650,7 @@ class ModifyAppointmentStatus(APIView):
             status=status.HTTP_200_OK
         )
 
-    
+#Appointment update     
 class AppointmentUpdateStatusView(APIView):
     """
     API to update the status of an appointment.
@@ -1647,7 +1690,7 @@ class AppointmentUpdateStatusView(APIView):
             )
 
 
-    
+#status   
 class StatusViewSet(viewsets.ModelViewSet):
     """
     API to list all statuses without pagination.
@@ -1661,8 +1704,9 @@ class StatusViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(statuses, many=True)
         return Response(serializer.data)
     
+#category    
 class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.all()
+    queryset = Category.objects.filter(is_deleted=False).order_by('-category_id')
     serializer_class = CategorySerializer
 
     def list(self, request, *args, **kwargs):
@@ -1681,10 +1725,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
                 "message": "No categories found",
                 "data": []
             },status=status.HTTP_404_NOT_FOUND)
+        
 
-
+#subcategory
 class SubcategoryViewSet(viewsets.ModelViewSet):
-    queryset = Subcategory.objects.all()
+    queryset = Subcategory.objects.filter(is_deleted=False).order_by('-subcategory_id')
     serializer_class = SubcategorySerializer
 
     def get_queryset(self):
@@ -1714,7 +1759,8 @@ class SubcategoryViewSet(viewsets.ModelViewSet):
                 "message": "No subcategories found",
                 "data": []
             }, status=status.HTTP_404_NOT_FOUND)
-        
+
+#Services         
 class ServicesByCategorySubcategoryView(APIView):
     def get(self, request):
         # Get category_id and subcategory_id from query parameters
@@ -1937,6 +1983,8 @@ class SalesTransactionAPIView(APIView, CustomPagination):
 
 
 
+   
+
 # Get Invoice list
 def get_invoice_view(request):
     try:
@@ -1999,6 +2047,139 @@ def get_invoice_view(request):
         return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
 
+
+
+
+#Invoice pdf
+def generate_invoice_pdf(request):
+    try:
+        # Get appointment_id from query parameters
+        appointment_id = request.GET.get('appointment_id')
+        if not appointment_id:
+            return HttpResponse("appointment_id is required", status=400)
+        
+        # Fetch appointment details
+        appointment = get_object_or_404(Appointment, appointment_id=appointment_id)
+        user = get_object_or_404(User, user_id=appointment.user.user_id)
+        payment = get_object_or_404(Payment, appointment=appointment)
+        
+        # Get service details
+        service_ids = map(int, appointment.service_id_new.split(','))
+        services = Services.objects.filter(service_id__in=service_ids)
+        
+        # Prepare service data for the template
+        service_details = []
+        for service in services:
+            service_details.append({
+                'name': service.service_name,
+                'price': service.price,
+            })
+        
+        # Prepare invoice data for rendering
+        invoice_data = {
+            'user': {
+                'name': user.name,
+                'phone': user.phone,
+                'address': user.address,
+            },
+            'appointment': {
+                'date': appointment.appointment_date,
+                'time': appointment.appointment_time,
+            },
+            'payment': {
+                'amount': payment.amount,
+                'cgst': payment.cgst,
+                'sgst': payment.sgst,
+                'grand_total': payment.grand_total,
+                'coupon_code': payment.coupon_code,
+                'coupon_amount': payment.coupon_amount,
+                'payment_mode': payment.payment_mode,
+                'payment_status': payment.payment_status,
+            },
+            'services': service_details,
+        }
+        
+        # Define HTML content
+        html_content = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Invoice</title>
+            <style>
+                body { font-family: Arial, sans-serif; }
+                .header { text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
+                .section { margin-bottom: 20px; }
+                .details, .services { width: 100%; border-collapse: collapse; }
+                .details td, .services th, .services td { border: 1px solid #ddd; padding: 8px; }
+                .services th { text-align: left; background-color: #f2f2f2; }
+                .totals { text-align: right; margin-top: 20px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">Invoice</div>
+
+            <div class="section">
+                <strong>Invoice to:</strong><br>
+                {{ invoice.user.name }} | {{ invoice.user.phone }}<br>
+                {{ invoice.user.address }}
+            </div>
+
+            <div class="section">
+                <strong>Payment Details:</strong><br>
+                Total Due: Rs. {{ invoice.payment.grand_total }}<br>
+                Payment Mode: {{ invoice.payment.payment_mode }}<br>
+                Payment Status: {{ invoice.payment.payment_status }}<br>
+                Coupon: {{ invoice.payment.coupon_code|default:"NIL" }}
+            </div>
+
+            <table class="services">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Charges</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for service in invoice.services %}
+                    <tr>
+                        <td>{{ service.name }}</td>
+                        <td>Rs. {{ service.price }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="totals">
+                <p>SGST Tax: Rs. {{ invoice.payment.sgst }}</p>
+                <p>CGST Tax: Rs. {{ invoice.payment.cgst }}</p>
+                <p><strong>Total: Rs. {{ invoice.payment.grand_total }}</strong></p>
+            </div>
+        </body>
+        </html>
+        """
+
+        # Render the template using Django's Template system
+        template = Template(html_content)
+        context = Context({'invoice': invoice_data})
+        html = template.render(context)
+
+        # Generate the PDF
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="invoice.pdf"'
+        result = io.BytesIO()
+        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        
+        if not pdf.err:
+            response.write(result.getvalue())
+            return response
+        else:
+            return HttpResponse("Error generating PDF", status=500)
+
+    except Exception as e:
+        return HttpResponse(f"Error: {str(e)}", status=400)
+
+
 #Wallet Transaction
 class ProviderTransactionListView(APIView):
     def get(self, request, *args, **kwargs):
@@ -2016,7 +2197,7 @@ class ProviderTransactionListView(APIView):
         
         serializer = ProviderTransactionSerializer(transactions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
+    
 #Review Approval
 class ReviewApprovalAPIView(APIView):
     def post(self, request, *args, **kwargs):
@@ -2094,29 +2275,25 @@ class AddWalletTransactionView(APIView):
             status=status.HTTP_201_CREATED
         )
 
+
 #Wallet credits
 class CreditsView(APIView):
     def get(self, request):
-        # Get provider_id from query parameters
         provider_id = request.query_params.get('provider_id')
         if not provider_id:
             return Response({'error': 'provider_id is required'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            # Fetch the provider object
             provider = ServiceProvider.objects.get(provider_id=provider_id)
 
-            # Total credits calculation (sum of provider's transactions)
+            # Total credits calculation (only successful transactions)
             total_credits = (
-                ProviderTransactions.objects.filter(provider=provider)
+                ProviderTransactions.objects.filter(provider=provider, status="Success")
                 .aggregate(Sum('total_amount'))['total_amount__sum']
             ) or Decimal(0)  # Ensure it's a Decimal
 
-            # Initialize available credits
             available_credits = Decimal(provider.available_credits)
-
-            # Initialize used credits
-            used_credits = Decimal(0)  # Initialize as Decimal
+            used_credits = Decimal(0)
 
             # Start a database transaction to ensure atomicity
             with transaction.atomic():
@@ -2126,32 +2303,30 @@ class CreditsView(APIView):
                     status__status_id=3
                 )
 
-                # Sum the used credits from all appointments
-                total_grand_total = Decimal(0)  # To store the sum of grand_total values
+                total_grand_total = Decimal(0)
                 for appointment in appointments_with_status_3:
                     payment = Payment.objects.filter(appointment=appointment).first()
                     if payment and payment.grand_total is not None:
-                        # Add grand_total to total_grand_total
                         total_grand_total += Decimal(payment.grand_total)
 
-                # Calculate used_credits as 30% of the total grand_total
-                used_credits = round(total_grand_total * Decimal(0.30))  # Round to the nearest integer
+                # Calculate used_credits as 30% of total grand_total
+                used_credits = round(total_grand_total * Decimal(0.30))
 
                 # Calculate available credits
                 available_credits = total_credits - used_credits
 
-                # Update the provider's available credits
+                # Update provider's available credits
                 provider.available_credits = available_credits
                 provider.save()
 
-            # Prepare response data with success status and message
+            # Prepare response
             data = {
-                'status': 'success',  # Add success status
-                'message': 'Credits successfully updated',  # Add custom message
+                'status': 'success',
+                'message': 'Credits successfully updated',
                 'provider_id': provider_id,
-                'total_credits': int(total_credits),  # Convert to integer
-                'available_credits': int(available_credits),  # Convert to integer
-                'used_credits': int(used_credits),  # Convert to integer
+                'total_credits': int(total_credits),
+                'available_credits': int(available_credits),
+                'used_credits': int(used_credits),
             }
 
             return Response(data, status=status.HTTP_200_OK)
@@ -2226,6 +2401,7 @@ class AddPackageServiceView(APIView):
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
+
 #Edit Packages
 class EditPackageServiceView(APIView):
     def put(self, request):
@@ -2279,6 +2455,7 @@ class EditPackageServiceView(APIView):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
+
 #Delete Packages
 class DeletePackageServiceView(APIView):
     def delete(self, request):
@@ -2307,6 +2484,7 @@ class DeletePackageServiceView(APIView):
             "status": "success",
             "message": "Package service soft deleted successfully"
         }, status=status.HTTP_200_OK)
+
 
 
 #Active Packages
@@ -2408,6 +2586,7 @@ class UpdateActivePackagesView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+
 #Get provider List   
 class ServiceProviderListView(APIView):
     pagination_class = CustomPagination
@@ -2462,7 +2641,7 @@ class ServiceProviderListView(APIView):
             "data": response_data,
         })
 
-
+        
 #Super Admin Login
 class SuperAdminLoginViewSet(viewsets.ModelViewSet):
     queryset = AdminUser.objects.all()
@@ -2481,7 +2660,7 @@ class SuperAdminLoginViewSet(viewsets.ModelViewSet):
 
         # Dynamically generate OTP
         # otp = ''.join(random.choices(string.digits, k=4))
-
+        
         # Set static OTP for testing
         otp = "1234"
 
@@ -2579,7 +2758,7 @@ class UpdateServiceProviderStatus(APIView):
             status=status.HTTP_200_OK,
         )
 
-#General Info
+
 class ProviderDetailsView(APIView):
     def get(self, request, format=None):
         provider_id = request.query_params.get('provider_id')  # Fetch provider_id from query parameters
@@ -2693,7 +2872,6 @@ class UpdateProviderDetails(APIView):
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
-
 #Stylist 
 class StylistListView(APIView):
     def get(self, request):
@@ -2721,7 +2899,7 @@ class StylistListView(APIView):
             status=status.HTTP_200_OK
         )
 
-#Toggle Status
+
 @api_view(['POST'])
 def toggle_service_status(request):
     """
@@ -2740,6 +2918,7 @@ def toggle_service_status(request):
     service.save()
 
     return Response({"status": "success","message": "Service status updated successfully"}, status=200)
+
 
 @api_view(['POST'])
 def update_service_status(request):
@@ -2768,7 +2947,6 @@ def update_service_status(request):
     branch.save()
 
     return Response({"status":"success","message": "Service status updated successfully"}, status=status.HTTP_200_OK)
-
 
 #Update Payment Status
 class UpdatePaymentStatus(APIView):
@@ -2802,7 +2980,7 @@ class CancelAppointmentView(APIView):
     def post(self, request):
         appointment_id = request.data.get("appointment_id")  # Get appointment_id from JSON
         if not appointment_id:
-            return Response({"status": "failure", "message": "appointment_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"status": "error", "message": "appointment_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         appointment = get_object_or_404(Appointment, appointment_id=appointment_id)
 
@@ -2818,6 +2996,60 @@ class CancelAppointmentView(APIView):
             "message": "Appointment has been cancelled successfully."
         }, status=status.HTTP_200_OK)
 
+
+class MindfulBeautySendSMS:
+    def __init__(self):
+        self.url = 'http://pay4sms.in'  # Base URL for the SMS API
+        self.token = '8f897a8f86701c6b468439a91383527d'  # API Token
+        self.credit = '2'  # Credit per SMS
+        self.sender = 'MFBPLT'  # Sender ID for Mindful Beauty
+        self.message_template = "Dear {name} , {otp} is the OTP for Login verification. Please do not share this code with anyone. Thank you for logging with us. mindfulbeauty.com"
+
+    def send_sms(self, name, otp, numbers, validity=10):
+        """
+        Sends an SMS with the OTP to the specified phone number.
+
+        Args:
+            otp (str): The OTP to be sent.
+            numbers (str): The recipient's phone number(s), comma-separated if multiple.
+            validity (int): The validity period for the OTP in minutes.
+
+        Returns:
+            str: Response text from the SMS API.
+        """
+        message = self.message_template.format(name=name, otp=otp, validity=validity)
+        message = requests.utils.quote(message)  # URL encode the message
+        sms_url = f"{self.url}/sendsms/?token={self.token}&credit={self.credit}&sender={self.sender}&number={numbers}&message={message}"
+        print(f"SMS API URL: {sms_url}")  # Log the full API URL for debugging
+        response = requests.get(sms_url)
+        return response.text
+
+    def check_dlr(self, message_id):
+        """
+        Checks the delivery report (DLR) status for a specific message.
+
+        Args:
+            message_id (str): The message ID received from the SMS API.
+
+        Returns:
+            str: Response text from the SMS API for DLR status.
+        """
+        dlr_url = f"{self.url}/Dlrcheck/?token={self.token}&msgid={message_id}"
+        response = requests.get(dlr_url)
+        return response.text
+
+    def available_credit(self):
+        """
+        Checks the available SMS credit balance.
+
+        Returns:
+            str: Response text from the SMS API for available credit balance.
+        """
+        credit_url = f"{self.url}/Credit-Balance/?token={self.token}"
+        response = requests.get(credit_url)
+        return response.text
+
+
 #Get provider cities
 class ProviderBranchesCityView(APIView):
     def get(self, request, format=None):
@@ -2826,7 +3058,7 @@ class ProviderBranchesCityView(APIView):
         if not provider_id:
             return Response({
                 'status': 'error',
-                'message': 'provider_id is required',
+                'message': 'provider_id is required ',
                 'data': []
             }, status=status.HTTP_400_BAD_REQUEST)
         
@@ -2870,6 +3102,250 @@ class ProviderBranchesCityView(APIView):
             'message': 'Branches cities retrieved successfully.',
             'data': filtered_branches
         }, status=status.HTTP_200_OK)
+
+
+# Razorpay Credentials
+RAZORPAY_KEY_ID = settings.RAZORPAY_KEY_ID
+RAZORPAY_KEY_SECRET = settings.RAZORPAY_KEY_SECRET
+
+# Store successful payments temporarily before adding to wallet
+# Store successful payments temporarily before adding to wallet
+verified_payments = {}
+
+class CreateOrderView(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            amount = request.data.get("amount")
+            currency = request.data.get("currency", "INR")
+            receipt = request.data.get("receipt")
+            provider_id = request.data.get("provider_id")  # Store provider_id
+
+            if not amount or not receipt:
+                return Response({
+                    "status": "failure",
+                    "message": "Missing required fields",
+                    "missing_fields": [field for field in ["amount", "receipt"] if not request.data.get(field)]
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Initialize Razorpay client
+            client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+            order_data = {
+                "amount": int(float(amount) * 100),  # Convert to paisa
+                "currency": currency,
+                "receipt": receipt,
+                "payment_capture": 1  # Auto capture payment
+            }
+
+            order = client.order.create(order_data)
+
+            # ✅ Store provider_id temporarily using order_id as key
+            verified_payments[order["id"]] = provider_id
+
+            return Response({
+                "status": "success",
+                "message": "Order created successfully",
+                "order": order
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+#Verify Payment
+class VerifyPaymentView(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            razorpay_order_id = request.data.get("razorpay_order_id")
+            razorpay_payment_id = request.data.get("razorpay_payment_id")
+            razorpay_signature = request.data.get("razorpay_signature")
+            provider_id = request.data.get("provider_id")  # Capture provider ID
+
+            if not razorpay_order_id:
+                return Response({"status": "failure", "message": "Missing order ID"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Initialize Razorpay client
+            client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+            params_dict = {
+                "razorpay_order_id": razorpay_order_id,
+                "razorpay_payment_id": razorpay_payment_id,
+                "razorpay_signature": razorpay_signature
+            }
+
+            try:
+                # Verify payment signature
+                client.utility.verify_payment_signature(params_dict)
+
+                # Fetch order details
+                order = client.order.fetch(razorpay_order_id)
+                amount = Decimal(order["amount"]) / Decimal(100)  # Convert back to currency format
+
+                # ✅ Calculate CGST and SGST (9% each)
+                cgst = (amount * Decimal(9)) / Decimal(100)  # 9% CGST
+                sgst = (amount * Decimal(9)) / Decimal(100)  # 9% SGST
+                total_amount = amount + cgst + sgst  # Grand Total
+
+                # ✅ Store successful payment including CGST & SGST
+                transaction = ProviderTransactions.objects.create(
+                    provider_id=provider_id,
+                    date=now().date(),
+                    amount=amount,
+                    type="Purchase",
+                    payment_type="Online",
+                    transaction_id=razorpay_payment_id,
+                    order_id=razorpay_order_id,
+                    total_amount=total_amount,
+                    cgst=cgst,  # Store CGST
+                    sgst=sgst,  # Store SGST
+                    status="Success"
+                )
+
+                return Response({
+                    "status": "success",
+                    "message": "Payment verified successfully.",
+                    "orderID": razorpay_order_id,
+                    "paymentID": razorpay_payment_id,
+                    "cgst": float(cgst),
+                    "sgst": float(sgst),
+                    "total_amount": float(total_amount)
+                }, status=status.HTTP_200_OK)
+
+            except razorpay.errors.SignatureVerificationError:
+                # Store failed payment if verification fails
+                ProviderTransactions.objects.create(
+                    provider_id=provider_id,
+                    date=now().date(),
+                    amount=0,  # Failed payments have no valid amount
+                    type="Purchase",
+                    payment_type="Online",
+                    transaction_id=None,
+                    order_id=razorpay_order_id,
+                    total_amount=0,
+                    status="Failed"
+                )
+
+                return Response({"status": "failure", "message": "Signature verification failed"}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+#Cancel Payment 
+class CancelPaymentView(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            order_id = request.data.get("order_id")  # Razorpay Order ID
+            provider_id = request.data.get("provider_id")  # Optional provider ID
+
+            if not order_id:
+                return Response({
+                    "status": "failure",
+                    "message": "Missing order_id"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if the transaction exists
+            transaction = ProviderTransactions.objects.filter(order_id=order_id).first()
+
+            if not transaction:
+                # Store failed order in the DB if it wasn't found
+                ProviderTransactions.objects.create(
+                    provider_id=provider_id,
+                    date=now().date(),
+                    amount=0,
+                    type="Purchase",
+                    payment_type="Online",
+                    transaction_id=None,
+                    order_id=order_id,
+                    total_amount=0,
+                    status="Failed"
+                )
+
+                return Response({
+                    "status": "failure",
+                    "message": "Transaction not found. Marked as failed."
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            if transaction.status == "Success":
+                return Response({
+                    "status": "failure",
+                    "message": "Cannot cancel a successful payment"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # If payment was initiated but not completed, mark as "Failed"
+            transaction.status = "Failed"
+            transaction.save()
+
+            return Response({
+                "status": "success",
+                "message": "Payment canceled successfully",
+                "order_id": order_id
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "status": "error",
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+#Create Wallet
+class CreateWalletTransactionView(APIView):
+    def post(self, request, *args, **kwargs):
+        provider_id = request.data.get('provider_id')
+        amount = request.data.get('amount')
+        razorpay_payment_id = request.data.get("transaction_id")  # Use payment_id instead of order_id
+        razorpay_order_id = request.data.get("order_id")  # Added order_id
+
+        if not provider_id or not amount or not razorpay_payment_id or not razorpay_order_id:
+            return Response(
+                {"status": "error", "message": "provider_id, amount, transaction_id (razorpay_payment_id), and order_id are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ✅ Check if the payment ID exists in verified payments
+        if razorpay_payment_id not in verified_payments.values():
+            return Response(
+                {"status": "error", "message": "Payment verification not found. Please verify payment first."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ✅ Fetch payment details from Razorpay to confirm success
+        client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+        payment = client.payment.fetch(razorpay_payment_id)
+
+        if payment["status"] != "captured":
+            return Response({"status": "error", "message": "Payment not successful."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ✅ Update only if status is 'Success'
+        try:
+            transaction = ProviderTransactions.objects.get(order_id=razorpay_order_id, transaction_id="")
+
+            # ✅ Update transaction with payment ID & mark as Success
+            transaction.transaction_id = razorpay_payment_id
+            transaction.status = "Success"
+            transaction.save()
+
+            # ✅ Add credits to provider's wallet only if success
+            provider = ServiceProvider.objects.get(id=provider_id)
+            provider.wallet_balance += Decimal(amount)
+            provider.save()
+
+            # ✅ Serialize response
+            serializer = ProviderTransactionSerializer(transaction)
+
+            return Response(
+                {
+                    "status": "success",
+                    "message": "Transaction successful. Credits added to wallet.",
+                    "data": serializer.data
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        except ProviderTransactions.DoesNotExist:
+            return Response({"status": "error", "message": "Transaction not found or already updated."}, status=status.HTTP_404_NOT_FOUND)
+
+        except ServiceProvider.DoesNotExist:
+            return Response({"status": "error", "message": "Provider not found."}, status=status.HTTP_404_NOT_FOUND)
 
 #Appointment Edit 
 class EditAppointmentView(APIView):
@@ -2928,6 +3404,7 @@ class EditAppointmentView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+
 #Super Admin Booking List   
 class SuperAdminBookingListAPIView(APIView):
     def get(self, request):
@@ -2938,14 +3415,15 @@ class SuperAdminBookingListAPIView(APIView):
             order_by_field = "-appointment_id" if sort_order == "desc" else "appointment_id"
 
             bookings = (
-                Appointment.objects.filter(
-                    status_id=0,
-                    appointment_date__gte=now.date(),
-                )
-                .exclude(branch__isnull=True)  # Ensure branch exists
-                .select_related("branch")  # Optimize DB queries
-                .order_by(order_by_field)
+            Appointment.objects.filter(
+                status_id=0,
+                appointment_date__gte=now.date(),
             )
+            .exclude(branch__isnull=True)
+            .select_related("branch", "provider")  # Optimize DB queries
+            .order_by(order_by_field)
+        )
+
 
             serializer = AppointmentSerializer(bookings, many=True)
             return Response(
@@ -2985,6 +3463,8 @@ def category_list(request):
         "message": "Categories fetched successfully",
         "data": serializer.data
     })
+
+
 
 @api_view(['POST'])
 def add_category(request):
@@ -3037,6 +3517,7 @@ def edit_category(request):
         "message": "Invalid data",
         "errors": serializer.errors
     }, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['DELETE'])
 def delete_category(request):
@@ -3178,8 +3659,6 @@ def edit_subcategory(request):
         }, status=status.HTTP_404_NOT_FOUND)
 
 
-
-
 # 4️⃣ Soft Delete a Subcategory
 @api_view(['DELETE'])
 def delete_subcategory(request):
@@ -3245,6 +3724,7 @@ def get_services(request):
     })
 
 
+
 @api_view(['POST'])
 def add_service(request):
     """Add a new service with auto-generated SKU value"""
@@ -3306,6 +3786,7 @@ def edit_service(request):
             "message": "Service not found"
         }, status=status.HTTP_404_NOT_FOUND)
 
+
 @api_view(['DELETE'])
 def delete_service(request):
     """Soft delete a service using query param service_id"""
@@ -3332,7 +3813,6 @@ def delete_service(request):
             "status": "failure",
             "message": "Service not found"
         }, status=status.HTTP_404_NOT_FOUND)
-
 
 #All Review List
 class ReviewListView(APIView, PageNumberPagination):  # Use APIView, No Router Required
@@ -3381,6 +3861,7 @@ class ReviewListView(APIView, PageNumberPagination):  # Use APIView, No Router R
             "message": "Reviews fetched successfully",
             "data": serializer.data
         })
+
 
 #All Appointment List
 class AllAppointmentsListView(APIView):
@@ -3491,6 +3972,8 @@ class AllAppointmentsListView(APIView):
         return paginator.get_paginated_response(data)
 
 
+
+
 # All Sales and Transactions List
 class AllSalesTransactionAPIView(APIView, CustomPagination):
     def get(self, request):
@@ -3584,7 +4067,6 @@ class AllSalesTransactionAPIView(APIView, CustomPagination):
 
         paginated_data = self.paginate_queryset(data, request, view=self)
         return self.get_paginated_response(paginated_data)
-
 
 
 #Get Coupon List
@@ -3746,3 +4228,4 @@ class DeleteServiceProvider(APIView):
                 "status": "failure",
                 "message": "Service provider not found."
             }, status=status.HTTP_404_NOT_FOUND)
+

@@ -1,19 +1,17 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import LoginViewSet,RegisterServiceProvider, ProviderBankInfo,ProviderTaxInfo,ProviderGeneralInfo,RoleViewSet,StaffManagementAPIView,StaffDetailAPIView,BranchesByProviderAPIView,BranchListCreateView,BranchDetailView, BranchListView,ReviewViewSet,AddServicesAPIView,ActiveServicesView,ProviderServicesView,EditServiceAPIView,DeleteServiceAPIView,PermissionsAPIView,RoleProviderPermissionsAPIView, AppointmentListView, StatusViewSet,CategoryViewSet,SubcategoryViewSet,ServicesByCategorySubcategoryView,UpdateActiveServicesView,BeauticianViewSet,AssignStylistView,SalesTransactionAPIView,ModifyAppointmentStatus,get_invoice_view,CopyBranchServicesAPIView,ProviderTransactionListView,ReviewApprovalAPIView,AddWalletTransactionView,CreditsView,PackageDetailsView,AddPackageServiceView,EditPackageServiceView, DeletePackageServiceView,ActivePackagesByProviderView,ServiceProviderListView,UpdateActivePackagesView,SuperAdminLoginViewSet,UpdateServiceProviderStatus,ProviderDetailsView,UpdateProviderDetails,StylistListView,toggle_service_status,update_service_status,UpdatePaymentStatus,CancelAppointmentView,ProviderBranchesCityView,EditAppointmentView,SuperAdminBookingListAPIView,category_list,add_category,edit_category,delete_category,get_subcategories,add_subcategory,edit_subcategory,delete_subcategory,get_services,add_service,edit_service,delete_service,ReviewListView,AllAppointmentsListView,AllSalesTransactionAPIView,CouponListAPIView,ExpiredCouponListAPIView,CouponCreateAPIView,CouponUpdateAPIView,CouponDeleteAPIView,DeleteServiceProvider
-
-
+from .views import LoginViewSet,RegisterServiceProvider, ProviderBankInfo,ProviderTaxInfo,ProviderGeneralInfo,RoleViewSet,StaffManagementAPIView,StaffDetailAPIView,BranchesByProviderAPIView,BranchListCreateView,BranchDetailView, BranchListView,ReviewViewSet,ServicesViewSet, AddServicesAPIView,ActiveServicesView,ProviderServicesView,EditServiceAPIView,DeleteServiceAPIView,PermissionsAPIView,RoleProviderPermissionsAPIView, AppointmentListView, StatusViewSet,CategoryViewSet,SubcategoryViewSet,ServicesByCategorySubcategoryView,UpdateActiveServicesView,BeauticianViewSet,AssignStylistView,SalesTransactionAPIView,get_invoice_view,generate_invoice_pdf,CopyBranchServicesAPIView,ModifyAppointmentStatus,ProviderTransactionListView,ReviewApprovalAPIView,AddWalletTransactionView,CreditsView,PackageDetailsView,AddPackageServiceView,EditPackageServiceView, DeletePackageServiceView,ActivePackagesByProviderView,ServiceProviderListView,ProviderDetailsView, UpdateActivePackagesView,SuperAdminLoginViewSet,UpdateServiceProviderStatus,UpdateProviderDetails,StylistListView,toggle_service_status,update_service_status,UpdatePaymentStatus,CancelAppointmentView,ProviderBranchesCityView,CreateOrderView,VerifyPaymentView,CreateWalletTransactionView,EditAppointmentView,CancelPaymentView,SuperAdminBookingListAPIView,category_list,add_category,edit_category,delete_category,get_subcategories,add_subcategory,edit_subcategory,delete_subcategory,get_services,add_service,edit_service,delete_service,ReviewListView, AllAppointmentsListView,AllSalesTransactionAPIView,CouponListAPIView,ExpiredCouponListAPIView,CouponCreateAPIView,CouponUpdateAPIView,CouponDeleteAPIView,DeleteServiceProvider
 
 router = DefaultRouter()
 router.register(r'login', LoginViewSet, basename='login')
 router.register(r'provider_roles', RoleViewSet, basename='role')
 router.register(r'reviews', ReviewViewSet, basename='review')
+router.register(r'services',ServicesViewSet)
 router.register(r'status', StatusViewSet, basename='status')
 router.register(r'categories', CategoryViewSet)
 router.register(r'subcategories', SubcategoryViewSet)
 router.register(r'beauticians', BeauticianViewSet, basename='beauticians')
 router.register(r'superadmin', SuperAdminLoginViewSet, basename='superadmin-login')
-
 
 
 
@@ -44,9 +42,10 @@ urlpatterns = [
     path('update-active-services/', UpdateActiveServicesView.as_view(), name='update-active-services'),
     path('assign-stylist/', AssignStylistView.as_view(), name='assign-stylist'),
     path('sales-transactions/', SalesTransactionAPIView.as_view(), name='sales-transactions'),
-    path('modify-status/', ModifyAppointmentStatus.as_view(), name='modify_appointment_status'),
     path('invoice/', get_invoice_view, name='get_invoice'),
+    path('generate-invoice-pdf/', generate_invoice_pdf, name='generate_invoice_pdf'),
     path("copy-services/", CopyBranchServicesAPIView.as_view(), name="copy-services"),
+    path('modify-status/', ModifyAppointmentStatus.as_view(), name='modify_appointment_status'),
     path('provider-transactions/', ProviderTransactionListView.as_view(), name='transaction-list'),
     path('approve-review/', ReviewApprovalAPIView.as_view(), name='approve-review'),
     path('add-wallet-transaction/', AddWalletTransactionView.as_view(), name='add-wallet-transaction'),
@@ -58,8 +57,8 @@ urlpatterns = [
     path('active-packages/', ActivePackagesByProviderView.as_view(), name='active-packages-by-provider'),
     path('update-packages/', UpdateActivePackagesView.as_view(), name='update-service'),
     path('providers_list/', ServiceProviderListView.as_view(), name='service_provider_list'),
-    path('accept-provider-status/', UpdateServiceProviderStatus.as_view(), name='update-provider-status'),
     path('general_info/', ProviderDetailsView.as_view(), name='provider-details'),
+    path('accept-provider-status/', UpdateServiceProviderStatus.as_view(), name='update-provider-status'),
     path('update-provider-details/', UpdateProviderDetails.as_view(), name='update-provider-details'),
     path('stylists/', StylistListView.as_view(), name='stylist-list'),
     path('toggle-service-status/', toggle_service_status, name="toggle_service_status"),
@@ -67,6 +66,10 @@ urlpatterns = [
     path("update-payment-status/", UpdatePaymentStatus.as_view(), name="update-payment-status"),
     path('cancel-appointment/', CancelAppointmentView.as_view(), name='cancel-appointment'),
     path('provider_cities/', ProviderBranchesCityView.as_view(), name='provider-branches-city'),
+    path("create-order/", CreateOrderView.as_view(), name="create-order"),
+    path("verify-payment/", VerifyPaymentView.as_view(), name="verify-payment"),
+    path('cancel-payment/', CancelPaymentView.as_view(), name='cancel_payment'),
+    path('wallet/add-transaction/', CreateWalletTransactionView.as_view(), name='add-wallet-transaction'),
     path('edit-appointment/', EditAppointmentView.as_view(), name='edit-appointment'),
     path('getbookings/', SuperAdminBookingListAPIView.as_view(), name='superadmin-booking-list'),
     path('category/', category_list, name='category-list'),  
@@ -90,10 +93,6 @@ urlpatterns = [
     path('coupons/edit/', CouponUpdateAPIView.as_view(), name='edit_coupon'),
     path('coupons/delete/', CouponDeleteAPIView.as_view(), name='edit_coupon'),
     path('delete-service-provider/', DeleteServiceProvider.as_view(), name='delete_service_provider'),
-
-
-
-
 
 
 
