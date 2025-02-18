@@ -34,7 +34,8 @@ class ServiceProvider(models.Model):
     available_slots = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    image_url = models.ImageField(upload_to='provider_images/', null=True, blank=True)
+    #image_url = models.ImageField(upload_to='provider_images/', null=True, blank=True)
+    image_url = models.ImageField(upload_to='provider_images/', storage=AzureMediaStorage(), null=True, blank=True)  
     business_summary = models.TextField(blank=True, null=True)
     gender_type = models.CharField(max_length=100, blank=True, null=True)  
     timings = models.CharField(max_length=100, blank=True, null=True)
@@ -93,7 +94,9 @@ class Branches(models.Model):
     phone = models.CharField(max_length=20, null=True, blank=True)  
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    logo = models.ImageField(upload_to='branch_logos/', null=True, blank=True) 
+    #logo = models.ImageField(upload_to='branch_logos/', null=True, blank=True) 
+    logo = models.ImageField(upload_to='branch_logos/', storage=AzureMediaStorage(),null=True, blank=True) 
+    
     service_status = models.IntegerField(choices=[(1, 'Online'), (0, 'Offline')], default=0)
     is_deleted = models.BooleanField(default=False)  # New column
 
@@ -180,7 +183,9 @@ class Staff(models.Model):
     available_slots = models.JSONField(null=True, blank=True)
     status = models.CharField(max_length=20, blank=True, null=True)  # Added max_length
     created_at = models.DateTimeField(auto_now_add=True)
-    photo = models.ImageField(upload_to='staff_photos/', null=True, blank=True)  # Added ImageField for photo upload
+    #photo = models.ImageField(upload_to='staff_photos/', null=True, blank=True)  # Added ImageField for photo upload
+    photo = models.ImageField(upload_to='staff_photos/', storage=AzureMediaStorage(),null=True, blank=True)
+    
     is_deleted = models.BooleanField(default=False)  # New field for soft deletion
     phone = models.CharField(max_length=15, blank=True, null=True)  # Added phone field
     otp = models.IntegerField(blank=True, null=True)  # Added otp field
@@ -266,7 +271,8 @@ class Services(models.Model):
     price = models.CharField(max_length=255)
     description = models.TextField()
     status = models.CharField(max_length=20, default='Active')
-    image = models.ImageField(upload_to='service_images/', null=True, blank=True)
+    #image = models.ImageField(upload_to='service_images/', null=True, blank=True)
+    image = models.ImageField(upload_to='service_images/',storage=AzureMediaStorage(), null=True, blank=True)
     sku_value = models.CharField(max_length=255, null=True)
     service_time = models.CharField(max_length=50, null=True, blank=True)
     service_type = models.IntegerField(null=True, blank=True)
@@ -412,7 +418,8 @@ class Beautician(models.Model):
     role = models.CharField(max_length=100)  # e.g., 'Beautician', 'All Rounder'
     years_of_experience = models.CharField(max_length=100)
     rating = models.FloatField()  # Store rating as a float (e.g., 4.5)
-    profile_image = models.ImageField(upload_to='beauticians/')  # Store profile images
+    # profile_image = models.ImageField(upload_to='beauticians/')  # Store profile images
+    profile_image = models.ImageField(upload_to='beauticians/', storage=AzureMediaStorage()) 
     provider = models.ForeignKey('ServiceProvider', on_delete=models.CASCADE,null=True)
 
 

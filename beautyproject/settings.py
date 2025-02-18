@@ -64,6 +64,10 @@ AZURE_CONTAINER = 'mbimages'  # The name of your blob container
 AZURE_URL_EXPIRATION_SECS = None  # Optional: set expiry for signed URLs
 
 
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_live_W6lWHSfydSDFbE")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "BnihE9S930JLq3IvEbSrAo5d")
+
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
