@@ -23,7 +23,7 @@ from .views import AvailableSlotsViewSet
 from .views import ReviewViewSet
 from .views import CouponAPIView, VerifyCouponAPIView
 from .views import ServiceFAQViewSet
-from .views import AddToCartAPIView,AddPaymentAPIView,OTPVerificationAPIView,BookingListAPIView,ProviderActionAPIView,AppointmentStatusAPIView
+from .views import AddToCartAPIView,AddPaymentAPIView,OTPVerificationAPIView,BookingListAPIView,ProviderActionAPIView,AppointmentStatusAPIView,DeclineAppointmentMessageAPIView, MessageViewSet,FrequentlyUsedServicesAPIView,CallbackRequestCreateOrUpdateAPIView,NewsletterSubscriptionAPIView,CityViewSet,ProvidersReviewViewSet,UserBookingsAPIView,user_details,ContactFormView,RecommendedProvidersView
 
 router = DefaultRouter()
 router.register(r'service-providers', ServiceProviderViewSet, basename='serviceprovider')
@@ -46,6 +46,10 @@ router.register(r'login', LoginViewSet, basename='login')
 router.register(r'available-slots', AvailableSlotsViewSet, basename='available-slots')
 router.register(r'reviews', ReviewViewSet, basename='review')
 router.register(r'servicefaq', ServiceFAQViewSet)
+router.register(r'messages', MessageViewSet)
+router.register(r'cities', CityViewSet, basename='city')
+router.register(r'providers-reviews', ProvidersReviewViewSet, basename='provider')
+
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -59,6 +63,18 @@ urlpatterns = [
     path('checkout/', AddPaymentAPIView.as_view(), name='add_payment'),
     path('provider-booking-action/', ProviderActionAPIView.as_view(), name='booking-action'),
     path('appointment/status/', AppointmentStatusAPIView.as_view(), name='appointment-status'),
+    path('message/', DeclineAppointmentMessageAPIView.as_view(), name='decline_appointment_message'),
+    path('frequently-used-services/', FrequentlyUsedServicesAPIView.as_view(), name='frequently-used-services'),
+    path('callback-request/', CallbackRequestCreateOrUpdateAPIView.as_view(), name='callback-request'),
+    path('subscribe/', NewsletterSubscriptionAPIView.as_view(), name='newsletter-subscribe'),
+    path('user-bookings/', UserBookingsAPIView.as_view(), name='user-bookings'),
+    path('my-profile/', user_details, name='user_details'),
+    path('contact/', ContactFormView.as_view(), name='contact_form'),
+    path('recommended-providers/', RecommendedProvidersView.as_view(), name='recommended-providers'),
+
+
+
+
 
 
 ]

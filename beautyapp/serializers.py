@@ -23,6 +23,8 @@ from .models import Review
 from .models import Coupon
 from .models import ServiceFAQ
 from .models import BeautyAppPackage
+from .models import Message,CallbackRequest,Newsletter,ContactForm
+
 
 
 class LoginSerializer(serializers.ModelSerializer):
@@ -49,9 +51,17 @@ class BeautyParlourSerializer(serializers.ModelSerializer):
     
 
 class ServiceProviderSerializer(serializers.ModelSerializer):
+    city = serializers.CharField()
+    state = serializers.CharField()
+
     class Meta:
         model = ServiceProvider
-        fields = '__all__'
+        fields = [
+            'provider_id', 'name', 'email', 'phone', 'years_of_experience',
+            'skills', 'specializations', 'rating', 'status', 'working_hours',
+            'available_slots', 'created_at', 'updated_at', 'image_url',
+            'business_summary', 'gender_type', 'timings', 'city', 'state'
+        ]
 
 class AvailableSlotsSerializer(serializers.ModelSerializer):
     available_slots = serializers.JSONField()
@@ -184,6 +194,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
     branch_city = serializers.SerializerMethodField()  # Branch city as a method field
     appointment_date = serializers.SerializerMethodField()
     appointment_time = serializers.SerializerMethodField()
+    stylist_name = serializers.SerializerMethodField()  # Add stylist name
+    stylist_id = serializers.SerializerMethodField()  # Add stylist_id field
 
     class Meta:
         model = Appointment
@@ -196,17 +208,18 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'user_phone',
             'service_names',  # Array of service names
             'branch_city',
+            'stylist_name',  # Add stylist name to fields
+            'stylist_id',  # Add stylist_id to fields
         ]
 
     def get_service_names(self, obj):
-        service_ids = obj.service_id_new.split(',')  # Assuming service_id_new is a comma-separated list of service IDs
+        service_ids = obj.service_id_new.split(',')  
         services = Services.objects.filter(service_id__in=service_ids)
         service_details = [
             {"service_name": service.service_name, "price": float(service.price) if service.price else 0}
             for service in services
         ]
-        return service_details  # Return an array of dictionaries containing the service details
-
+        return service_details  
 
     def get_branch_city(self, obj):
         branch = obj.branch
@@ -219,3 +232,140 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
     def get_appointment_time(self, obj):
         return obj.appointment_time.strftime('%H:%M')
+
+    def get_stylist_name(self, obj):
+        # Assuming stylist_id is a field in the Appointment model
+        if obj.stylist_id:
+            try:
+                stylist = Beautician.objects.get(id=obj.stylist_id)
+                return stylist.name  
+            except Beautician.DoesNotExist:
+                return None
+        return None
+
+    def get_stylist_id(self, obj):
+        # Return the stylist_id if it exists
+        return obj.stylist_id if obj.stylist_id else None
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Message
+        fields = ['message_id', 'text']
+
+class FrequentlyUsedServiceSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.category_name', read_only=True)
+
+    class Meta:
+        model = Services
+        fields = ['service_id', 'service_name', 'image', 'price', 'category_name']
+
+class CallbackRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CallbackRequest
+        fields = ['name', 'phone', 'user', 'status']
+        extra_kwargs = {
+            'name': {'required': True},  # Ensure name is required
+        }
+
+class NewsletterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Newsletter
+        fields = ['email']
+
+class ReviewsSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.name', read_only=True)
+    rating = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = ['review_id', 'rating', 'comment', 'user_name', 'created_at', 'status']
+
+    def get_rating(self, obj):
+        return f"{obj.rating:.1f}"
+
+
+
+class ServicesProviderSerializer(serializers.ModelSerializer):
+    reviews = ReviewsSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ServiceProvider
+        fields = ['provider_id', 'name', 'reviews']  # Remove review_count and average_rating
+
+
+
+class BookingSerializer(serializers.ModelSerializer):
+    branch_name = serializers.SerializerMethodField()
+    services = serializers.SerializerMethodField()
+    stylist_name = serializers.SerializerMethodField()
+    status_name = serializers.SerializerMethodField()
+    username = serializers.SerializerMethodField()
+    payment_amount = serializers.SerializerMethodField()
+    formatted_date = serializers.SerializerMethodField()
+    formatted_time = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Appointment
+        fields = [
+            'appointment_id', 'formatted_date', 'formatted_time', 'branch_name', 
+            'services', 'stylist_name', 'status_name', 'username', 'payment_amount'
+        ]
+
+    def get_formatted_date(self, obj):
+        return obj.appointment_date.strftime('%d/%m/%Y')
+
+    def get_formatted_time(self, obj):
+        return obj.appointment_time.strftime('%H:%M')
+
+    def get_branch_name(self, obj):
+        if obj.branch:
+            return obj.branch.branch_name
+        return None
+
+    def get_services(self, obj):
+        service_ids = obj.service_id_new.split(',')
+        services = Services.objects.filter(service_id__in=service_ids)
+        return [service.service_name for service in services]
+
+    def get_stylist_name(self, obj):
+        if obj.stylist:
+            return obj.stylist.name
+        return None
+
+    def get_status_name(self, obj):
+        if obj.status:
+            return obj.status.status_name
+        return None
+
+    def get_username(self, obj):
+        return obj.user.name  # Assuming 'name' is the field in the 'User' model
+
+    def get_payment_amount(self, obj):
+      payment = Payment.objects.filter(appointment=obj).first()
+      if payment:
+          return payment.grand_total
+      return None
+
+class UsersSerializer(serializers.ModelSerializer):
+    dob = serializers.DateField(input_formats=["%d-%m-%Y"], format="%d-%m-%Y", required=False)
+
+    class Meta:
+        model = User
+        fields = ['user_id', 'name', 'email', 'phone', 'dob', 'gender', 'location', 'address']
+        extra_kwargs = {
+            'gender': {'required': False},
+            'location': {'required': False},
+            'address': {'required': False},
+        }
+
+
+class ContactFormSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactForm
+        fields = ['name', 'email', 'message']
+
+
+
+
+

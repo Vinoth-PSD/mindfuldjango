@@ -21,7 +21,7 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # BASE_URL = 'https://mindful-beauty.vercel.app'
-BASE_URL = 'https://mbrestapi-f8cphtgaf7fjdyb0.westcentralus-01.azurewebsites.net/'
+BASE_URL = 'https://djangoapp-git-main-mindful-beautys-projects.vercel.app'
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -49,7 +49,19 @@ INSTALLED_APPS = [
     'serviceapp',
     'rest_framework',
     'corsheaders',
+    'storages'
 ]
+
+
+DEFAULT_FILE_STORAGE = 'storages.backends.azure_storage.AzureStorage'
+
+
+
+AZURE_ACCOUNT_NAME = 'mbimagestorage'  # Get from Azure Portal
+AZURE_ACCOUNT_KEY = 'e/Ld9cY2Jw3Iskw3V6bYlMH67yD7m6XWZvYUHerZmqhV9xdWtAVOPrYo4yxeQrakzK+2jWETGCMa+AStIwkNgQ=='  # Get from Azure Portal
+AZURE_CONTAINER = 'mbimages'  # The name of your blob container
+AZURE_URL_EXPIRATION_SECS = None  # Optional: set expiry for signed URLs
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -89,10 +101,10 @@ WSGI_APPLICATION = 'beautyproject.wsgi.application'
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'mindfulbeauty',  # Replace with your PostgreSQL database name
-#         'USER': 'postgres',       # Replace with your PostgreSQL username
-#         'PASSWORD': '12345',   # Replace with your PostgreSQL password
-#         'HOST': 'localhost',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
+#         'NAME': 'md2025',  # Replace with your PostgreSQL database name
+#         'USER': 'mdadmin_2025',       # Replace with your PostgreSQL username
+#         'PASSWORD': 'Psd@2025',   # Replace with your PostgreSQL password
+#         'HOST': 'md2025.postgres.database.azure.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
 #         'PORT': '5432',                # Default PostgreSQL port is 5432
 #     }
 # }
@@ -100,10 +112,10 @@ WSGI_APPLICATION = 'beautyproject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'md2025',  # Replace with your PostgreSQL database name
-        'USER': 'mdadmin_2025',       # Replace with your PostgreSQL username
-        'PASSWORD': 'Psd@2025',   # Replace with your PostgreSQL password
-        'HOST': 'md2025.postgres.database.azure.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
+        'NAME': 'retool',  # Replace with your PostgreSQL database name
+        'USER': 'retool',       # Replace with your PostgreSQL username
+        'PASSWORD': 'xyn9uXBZfMl5',   # Replace with your PostgreSQL password
+        'HOST': 'ep-jolly-mouse-a65885wt.us-west-2.retooldb.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
         'PORT': '5432',                # Default PostgreSQL port is 5432
     }
 }

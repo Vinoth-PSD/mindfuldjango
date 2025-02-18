@@ -69,45 +69,66 @@ from .models import Coupon
 from .serializers import CouponSerializer
 
 from .models import ServiceFAQ
-from .serializers import ServiceFAQSerializer
+from .serializers import ServiceFAQSerializer,MessageSerializer,FrequentlyUsedServiceSerializer,CallbackRequestSerializer,NewsletterSerializer,ServicesProviderSerializer,BookingSerializer,UsersSerializer,ContactFormSerializer,ReviewsSerializer
 from django.db import transaction
 from decimal import Decimal
 from django.db.models import Sum
-from .models import Status
+from .models import Status,Message,CallbackRequest,Newsletter,Locations
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Count, Avg, FloatField, Q
+from django.db.models.functions import Round, Cast
+from rest_framework.decorators import api_view
+from django.db.models.functions import Length
+from django.db.models import F, Func, Value, FloatField,ExpressionWrapper
+from django.db.models.expressions import RawSQL
+from django.db.models.functions import ACos, Cos, Radians, Sin
+
+
 
 
 class LoginViewSet(viewsets.ModelViewSet):
     queryset = Login.objects.all()
     serializer_class = LoginSerializer
 
-    # Override the `create` method for initiating login (generating OTP)
+    # Override the create method for initiating login (generating OTP)
     def create(self, request, *args, **kwargs):
-     phone = request.data.get('phone')  # Get phone number from request
- 
-     if not phone:
-         return Response({'error': 'Phone number is required'}, status=status.HTTP_400_BAD_REQUEST)
-     
-     # Check if the phone number exists in the User table
-     if not User.objects.filter(phone=phone).exists():
-         return Response({'status': 'failure', 'message': 'User not registered'}, status=status.HTTP_400_BAD_REQUEST)
- 
-     # Get or create the Login entry for the phone number
-     login_entry, created = Login.objects.get_or_create(phone=phone)
-     if created:
-         # If entry was newly created, set OTP and timestamp
-         login_entry.otp = '1234'  # Default OTP value
-         login_entry.otp_created_at = timezone.now()
-         login_entry.save()
-         message = 'OTP generated and sent successfully'
-     else:
-         # If entry already existed, update OTP and timestamp
-         login_entry.otp = '1234'  # Default OTP value
-         login_entry.otp_created_at = timezone.now()
-         login_entry.save()
-         message = 'OTP updated successfully'
- 
-     # Return the OTP (In a real app, you'd send it via SMS)
-     return Response({'status': 'success', 'otp': login_entry.otp, 'message': message}, status=status.HTTP_200_OK)
+      phone = request.data.get('phone')  # Get phone number from request
+  
+      if not phone:
+          return Response({'error': 'Phone number is required'}, status=status.HTTP_400_BAD_REQUEST)
+  
+      # Check if the phone number exists in the User table
+      if not User.objects.filter(phone=phone).exists():
+          return Response({'status': 'failure', 'message': 'This mobile number is not registered. Please register first to log in.'}, status=status.HTTP_400_BAD_REQUEST)
+  
+      # Generate a random 6-digit OTP
+      otp = ''.join(random.choices(string.digits, k=4))
+  
+      # Get or create the Login entry for the phone number
+      login_entry, created = Login.objects.get_or_create(phone=phone)
+      if created:
+          # Set OTP and timestamp for new entries
+          login_entry.otp = otp
+          login_entry.otp_created_at = timezone.now()
+          login_entry.save()
+          message = 'OTP generated and sent successfully'
+      else:
+          # Update OTP and timestamp for existing entries
+          login_entry.otp = otp
+          login_entry.otp_created_at = timezone.now()
+          login_entry.save()
+          message = 'OTP updated successfully'
+  
+          # Send OTP via SMS using the MindfulBeautySendSMS class
+          sms = MindfulBeautySendSMS()
+          user_entry = User.objects.get(phone=phone)  # Get user details
+          sms_response = sms.send_sms(name=user_entry.name, otp=otp, numbers=phone)
+
+  
+      # Log the SMS API response (optional)
+      print(f"SMS API Response: {sms_response}")
+  
+      return Response({'status': 'success', 'otp': otp, 'message': message}, status=status.HTTP_200_OK)
 
     # Define a custom action for verifying OTP
     
@@ -148,14 +169,14 @@ class LoginViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
         else:
             return Response({'status': 'failure', 'message': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
-
+            
 
 class ServiceProviderViewSet(viewsets.ModelViewSet):
     queryset = ServiceProvider.objects.all()
     serializer_class = ServiceProviderSerializer
 
 class ServiceTypesViewSet(viewsets.ModelViewSet):
-    queryset = ServiceTypes.objects.all()
+    queryset = ServiceTypes.objects.all().order_by('-service_type_id')  # Order by service_type_id in descending order
     serializer_class = ServiceTypesSerializer
 
 class ServiceProviderSearchAPIView(APIView):
@@ -485,7 +506,7 @@ class UserViewSet(viewsets.ModelViewSet):
 class StaffViewSet(viewsets.ModelViewSet):
     queryset = Staff.objects.all()
     serializer_class = StaffSerializer
-    
+
     def list(self, request, *args, **kwargs):
         try:
             queryset = self.get_queryset()
@@ -508,6 +529,22 @@ class StaffViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
+
+    def create(self, request, *args, **kwargs):
+        phone = request.data.get("phone")
+        if phone:
+            # Check if the phone number already exists
+            if Staff.objects.filter(phone=phone).exists():
+                return Response(
+                    {
+                        "status": "failure",
+                        "message": "A staff member with this phone number already exists."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Proceed with the normal creation process if phone number is unique
+        return super().create(request, *args, **kwargs)
     
 
 class ServiceprovidertypeViewSet(viewsets.ModelViewSet):
@@ -602,9 +639,20 @@ class ServiceprovidertypeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 200  # Default number of records per page
+    page_size_query_param = 'page_size'  # Optional, to allow clients to set the page size
+    max_page_size = 500  # Optional, to limit the maximum number of records per page
+
+
 class ServicesViewSet(viewsets.ModelViewSet):
     queryset = Services.objects.all()
     serializer_class = ServicesSerializer
+    #pagination_class = None
+    pagination_class = StandardResultsSetPagination
+
+    
+
 
     
     
@@ -753,7 +801,9 @@ class BookServiceViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         provider_id = request.query_params.get('provider_id')
-        service_id= request.query_params.get('service_id')
+        service_id = request.query_params.get('service_id')
+        category_id = request.query_params.get('category_id')
+        subcategory_id = request.query_params.get('subcategory_id')
 
         if not provider_id:
             return Response(
@@ -766,17 +816,22 @@ class BookServiceViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            # Fetching the details based on provider_id
+            # Initialize the Serviceprovidertype object
             service_provider_type = Serviceprovidertype()
+
+            # Fetching the details based on provider_id
             provider_details = service_provider_type.get_provider_details(provider_id)
-            provider_services = service_provider_type.get_provider_services(provider_id,service_id)
-            beauticians = service_provider_type.get_beauticians_for_provider(provider_id) 
-            provider_photos = service_provider_type.get_provider_photos(provider_id,0)
-            provider_banner = service_provider_type.get_provider_photos(provider_id,1)
+            provider_services = service_provider_type.get_provider_services(provider_id, service_id, category_id, subcategory_id)
+            beauticians = service_provider_type.get_beauticians_for_provider(provider_id)
+            provider_photos = service_provider_type.get_provider_photos(provider_id, 0)
+            provider_banner = service_provider_type.get_provider_photos(provider_id, 1)
             faq = service_provider_type.get_faqs_for_provider(provider_id)
             overview = service_provider_type.get_overview_for_provider(provider_id)
-            review=service_provider_type.get_reviews_by_provider(provider_id)
-            packages = Serviceprovidertype().get_provider_packages(provider_id)
+            review = service_provider_type.get_reviews_by_provider(provider_id)
+            packages = service_provider_type.get_provider_packages(provider_id)
+
+            # Fetching frequently used services
+            frequently_used_services = service_provider_type.get_frequently_used_services(provider_id)    
 
             return Response(
                 {
@@ -786,11 +841,11 @@ class BookServiceViewSet(viewsets.ModelViewSet):
                     "services": provider_services,
                     "stylist": beauticians,
                     "photos": provider_photos,
-                    "banner":provider_banner,
+                    "banner": provider_banner,
                     "faq": faq,
                     "overview": overview,
-                    "review":review,
-                    "packages":packages
+                    "packages": packages,
+                    "frequently_used_services": frequently_used_services.get("data", []),
                 },
                 status=status.HTTP_200_OK
             )
@@ -803,7 +858,8 @@ class BookServiceViewSet(viewsets.ModelViewSet):
                     "data": []
                 },
                 status=status.HTTP_404_NOT_FOUND
-            )  
+            )
+
 
 
 class AvailableSlotsViewSet(viewsets.ModelViewSet):
@@ -835,20 +891,47 @@ class AvailableSlotsViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
-    # Handle updating available slots
+    # Handle updating available slots based on current time
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        data = request.data.get('provider_id')
-        
-        # Validate that available slots are provided
-        if not data:
-            return Response({'error': 'Available slots data is required'}, status=status.HTTP_404_NOT_FOUND)
-        
-        instance.available_slots = data
-        instance.save()
-        
-        return Response({'message': 'Available slots updated successfully', 'available_slots': instance.available_slots}, status=status.HTTP_200_OK)
 
+        # Get the current time (you can modify the format if needed)
+        current_time = datetime.now().strftime("%I:%M %p")  # Current time in 12-hour format (e.g., 12:30 PM)
+
+        # Process the available slots to turn off past times
+        updated_slots = []
+        slots_list = instance.available_slots[0].split(',')  # Assuming the available slots are a single string
+
+        for slot_time in slots_list:
+            slot_time = slot_time.strip()  # Remove any leading/trailing spaces
+            # Check if the slot time is in the future or current
+            if self.is_past_time(slot_time, current_time):
+                updated_slots.append({'time': slot_time, 'status': 'off'})
+            else:
+                updated_slots.append({'time': slot_time, 'status': 'on'})
+
+        # Update the service provider's available slots
+        instance.available_slots = updated_slots
+        instance.save()
+
+        # Return success response
+        return Response({
+            'status': 'success',
+            'message': 'Available slots updated successfully based on current time.',
+            'data': instance.available_slots
+        }, status=status.HTTP_200_OK)
+
+    def is_past_time(self, slot_time, current_time):
+        """
+        Helper method to check if a time slot is in the past based on current time.
+        """
+        try:
+            # Convert both slot_time and current_time to datetime objects
+            slot_time_obj = datetime.strptime(slot_time, "%I:%M %p")
+            current_time_obj = datetime.strptime(current_time, "%I:%M %p")
+            return slot_time_obj < current_time_obj
+        except ValueError:
+            return False
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
@@ -880,7 +963,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 'status': 'failure',
                 'message': 'Validation failed.',
                 'errors': serializer.errors
-            }, status=status.HTTP_200_OK)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         review = serializer.save()
 
@@ -908,7 +991,7 @@ class ReviewViewSet(viewsets.ModelViewSet):
                 'status': 'failure',
                 'message': 'Validation failed.',
                 'errors': serializer.errors
-            }, status=status.HTTP_200_OK)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         self.perform_update(serializer)
 
@@ -1082,8 +1165,9 @@ class AddToCartAPIView(APIView):
 
             # Validate and convert appointment_time to 24-hour format
             try:
+                # Convert to 24-hour time format (e.g., '11:30 AM' -> '11:30:00')
                 parsed_time = datetime.strptime(appointment_time, "%I:%M %p")  # 12-hour format with AM/PM
-                appointment_time_24hr = parsed_time.strftime("%H:%M")  # Convert to 24-hour format
+                appointment_time_24hr = parsed_time.time()  # Get the time part only
             except ValueError:
                 return Response({"error": "Invalid time format. Use 'HH:MM AM/PM'."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1099,18 +1183,18 @@ class AddToCartAPIView(APIView):
             service_ids_string = ",".join(map(str, service_ids_list))
             quantity_string = ",".join(map(str, quantity_list))
 
-            # Check if an appointment already exists with the same user, provider, branch, date, and time
-            existing_appointment = Appointment.objects.filter(
-                user_id=user_id,
-                provider_id=provider_id,
-                branch_id=branch_id,
-                appointment_date=appointment_date,
-                appointment_time=appointment_time_24hr,
-                status=status_obj
-            ).exists()
+            # # Check if an appointment already exists with the same user, provider, branch, date, and time
+            # existing_appointment = Appointment.objects.filter(
+            #     user_id=user_id,
+            #     provider_id=provider_id,
+            #     branch_id=branch_id,
+            #     appointment_date=appointment_date,
+            #     appointment_time=appointment_time_24hr,
+            #     status=status_obj
+            # ).exists()
 
-            if existing_appointment:
-                return Response({"error": "You already have an appointment at this time."}, status=status.HTTP_200_OK)
+            # if existing_appointment:
+            #     return Response({"error": "You already have an appointment at this time."}, status=status.HTTP_200_OK)
 
             # Use a transaction to ensure atomicity of the operation
             with transaction.atomic():
@@ -1142,39 +1226,60 @@ class AddToCartAPIView(APIView):
 #Booking List       
 class BookingListAPIView(APIView):
     def get(self, request):
-        provider_id = request.query_params.get('provider_id')
-        
+        provider_id = request.query_params.get("provider_id")
+        sort_order = request.query_params.get("sort_order", "desc")
+
         if not provider_id:
-            return Response({"status": "error", "message": "Provider ID is required."}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response(
+                {"status": "error", "message": "Provider ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
             provider_id = int(provider_id)
             now = datetime.now()
+            order_by_field = "-appointment_id" if sort_order == "desc" else "appointment_id"
 
-            bookings = Appointment.objects.filter(
-                provider_id=provider_id,
-                # status_id=0,  
-                appointment_date__gte=now.date()  
-            ).order_by('-appointment_date', '-appointment_time')  
+            bookings = (
+                Appointment.objects.filter(
+                    provider_id=provider_id,
+                    status_id=0,
+                    appointment_date__gte=now.date(),
+                )
+                .exclude(branch__isnull=True)  # Ensure branch exists
+                .select_related("branch")  # Optimize DB queries
+                .order_by(order_by_field)
+            )
 
             serializer = AppointmentSerializer(bookings, many=True)
-
             return Response(
-                {"status": "success", "message": "Fetched successfully", "bookings": serializer.data},
-                status=status.HTTP_200_OK
+                {
+                    "status": "success",
+                    "message": "Fetched successfully",
+                    "bookings": serializer.data,
+                },
+                status=status.HTTP_200_OK,
             )
-        
+
         except ValueError:
-            return Response({"status": "error", "message": "Invalid provider ID."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"status": "error", "message": "Invalid provider ID."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except Exception as e:
-            return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"status": "error", "message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 #Provider booking action
 class ProviderActionAPIView(APIView):
     def post(self, request):
         appointment_id = request.data.get('appointment_id')
-        action_id = request.data.get('action_id')  # Accepts action_id instead of action
+        action_id = request.data.get('action_id')
+        stylist_id = request.data.get('stylist_id')  # Optional stylist_id
 
+        # Validate required fields
         if not appointment_id or action_id is None:
             return Response(
                 {"status": "error", "message": "Appointment ID and action_id are required"},
@@ -1185,8 +1290,7 @@ class ProviderActionAPIView(APIView):
             # Define the mapping for action_id to actions
             action_mapping = {
                 1: "accept",
-                2: "deny",
-                3: "decline"
+                2: "decline"
             }
 
             # Check if the provided action_id is valid
@@ -1200,28 +1304,103 @@ class ProviderActionAPIView(APIView):
             # Fetch the appointment
             appointment = Appointment.objects.get(appointment_id=appointment_id)
 
+            # Fetch the service provider from the appointment
+            provider = ServiceProvider.objects.get(provider_id=appointment.provider_id)
+
+            # Check if the provider has at least 1000 available credits
+            if provider.available_credits < 1000:
+                return Response(
+                    {"status": "failure", "message": "You don't have the minimum amount in your wallet to perform this action."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
             # Handle actions based on action_id
             if action == "accept":
-                appointment.status_id = 1  # 'schedule'
+                appointment.status_id = 1  # 'scheduled'
                 appointment.otp = "1234"  # Generate or assign OTP here
+
+                # Assign stylist_id if provided
+                if stylist_id:
+                    appointment.stylist_id = stylist_id
+
                 appointment.save()
                 return Response(
-                    {"status": "success", "message": "Appointment accepted and scheduled"},
+                    {
+                        "status": "success",
+                        "message": "Appointment accepted and scheduled",
+                        "stylist_id": stylist_id or "No stylist assigned"  # Include stylist info in response
+                    },
                     status=status.HTTP_200_OK
                 )
 
-            elif action in ["deny", "decline"]:
+            elif action == "decline":
                 appointment.status_id = 4  # 'cancelled'
-                appointment.otp = None  # No OTP sent for denial or decline
+                appointment.otp = None  # No OTP sent for decline
                 appointment.save()
                 return Response(
-                    {"status": "success", "message": f"Appointment {action}d successfully"},
+                    {
+                        "status": "success",
+                        "message": f"Appointment {action}d successfully"
+                    },
                     status=status.HTTP_200_OK
                 )
 
         except Appointment.DoesNotExist:
             return Response(
                 {"status": "error", "message": "Appointment not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        except ServiceProvider.DoesNotExist:
+            return Response(
+                {"status": "error", "message": "Service provider not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        except Exception as e:
+            return Response(
+                {"status": "error", "message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+#Deny Appointment 
+class DeclineAppointmentMessageAPIView(APIView):
+    def post(self, request):
+        # Get the appointment ID and message ID from the request
+        appointment_id = request.data.get('appointment_id')
+        message_id = request.data.get('message_id')
+
+        if not appointment_id or not message_id:
+            return Response(
+                {"status": "error", "message": "Appointment ID and message ID are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Fetch the appointment and message
+            appointment = Appointment.objects.get(appointment_id=appointment_id)
+            message = Message.objects.get(message_id=message_id)
+
+            # Store the message_id in the appointment
+            appointment.message = str(message.message_id)  # Store message_id as string
+            appointment.status_id = 4  # Set status to 'cancelled'
+            appointment.save()
+
+            # Return a success response
+            return Response(
+                {"status": "success", "message": "Appointment declined and message ID stored successfully"},
+                status=status.HTTP_200_OK
+            )
+
+        except Appointment.DoesNotExist:
+            return Response(
+                {"status": "error", "message": "Appointment not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        except Message.DoesNotExist:
+            return Response(
+                {"status": "error", "message": "Message not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -1236,12 +1415,11 @@ class AppointmentStatusAPIView(APIView):
     def get(self, request):
         appointment_id = request.query_params.get('appointment_id')  # Get appointment_id from query parameters
         
-        if not appointment_id:
+        if not appointment_id or appointment_id == '0':
             return Response(
                 {"status": "error", "message": "Appointment ID is required"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_200_OK
             )
-
         try:
             # Fetch the appointment using the appointment_id
             appointment = Appointment.objects.get(appointment_id=appointment_id)
@@ -1263,6 +1441,7 @@ class AppointmentStatusAPIView(APIView):
                 {"status": "error", "message": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
         
 #OTP Verification        
 class OTPVerificationAPIView(APIView):
@@ -1306,6 +1485,7 @@ class AddPaymentAPIView(APIView):
     def post(self, request):
         """
         Handles storing payment data based on appointment_id, coupon code, and amount.
+        Calculates SGST, CGST, and Grand Total from the amount and stores them.
         """
         appointment_id = request.data.get("appointment_id")
         coupon_code = request.data.get("coupon_code", "")
@@ -1316,29 +1496,392 @@ class AddPaymentAPIView(APIView):
             return Response({"error": "Appointment ID and amount are required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            appointment = Appointment.objects.get(appointment_id=appointment_id)
+            with transaction.atomic():
+                appointment = Appointment.objects.get(appointment_id=appointment_id)
 
-            coupon_amount = Decimal(coupon_amount)
-            amount = Decimal(amount)
+                # Ensure amount and coupon_amount are decimals
+                coupon_amount = Decimal(coupon_amount)
+                amount = Decimal(amount)
 
-            payment = Payment.objects.create(
-                appointment=appointment,
-                amount=amount,
-                coupon_code=coupon_code,
-                coupon_amount=coupon_amount,
-                payment_status="Pending",
-            )
+                # Calculate CGST, SGST, and Grand Total
+                cgst = (amount * Decimal(9)) / Decimal(100)  # 9% CGST
+                sgst = (amount * Decimal(9)) / Decimal(100)  # 9% SGST
+                grand_total = amount + cgst + sgst - coupon_amount
 
-            return Response({
-                "message": "Payment recorded successfully",
-                "payment_id": payment.payment_id,
-                "amount": float(amount),
-                "coupon_code": coupon_code,
-                "coupon_amount": float(coupon_amount),
-            }, status=status.HTTP_201_CREATED)
+                # Create payment record
+                payment = Payment.objects.create(
+                    appointment=appointment,
+                    amount=amount,
+                    coupon_code=coupon_code,
+                    coupon_amount=coupon_amount,
+                    payment_status="Pending",
+                    cgst=int(cgst),
+                    sgst=int(sgst),
+                    grand_total=int(grand_total),
+                )
+                return Response({
+                    "status": "success",
+                    "message": "Payment recorded successfully",
+                    "payment_id": payment.payment_id,
+                    "amount": float(amount),
+                    "coupon_code": coupon_code,
+                    "coupon_amount": float(coupon_amount),
+                    "cgst": int(cgst),
+                    "sgst": int(sgst),
+                    "grand_total": int(grand_total),
+                }, status=status.HTTP_201_CREATED)
 
         except Appointment.DoesNotExist:
             return Response({"error": "Appointment not found."}, status=status.HTTP_404_NOT_FOUND)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#Messages
+class MessageViewSet(viewsets.ModelViewSet):
+    queryset = Message.objects.all()
+    serializer_class = MessageSerializer
+    pagination_class = None  
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        
+        return Response({
+            "status": "success", 
+            "message": "Messages retrieved successfully",  
+            "data": serializer.data  
+        })
+
+#Frequently Used Services 
+class FrequentlyUsedServicesAPIView(APIView):
+    def get(self, request):
+        # Extract and count the frequency of services based on appointments
+        appointments = Appointment.objects.values_list('service_id_new', flat=True)
+        service_count = {}
+
+        # Split comma-separated service IDs and count their occurrences
+        for service_ids in appointments:
+            if service_ids:
+                for service_id in service_ids.split(','):
+                    service_id = service_id.strip()
+                    if service_id.isdigit():  # Ensure valid service IDs
+                        service_count[service_id] = service_count.get(service_id, 0) + 1
+
+        # Get the top 3 most frequently used service IDs
+        top_service_ids = sorted(service_count, key=service_count.get, reverse=True)[:3]
+
+        if not top_service_ids:
+            return Response({
+                "status": "success",
+                "message": "No frequently used services.",
+                "data": []
+            })
+
+        # Fetch service details along with the category name
+        services = Services.objects.filter(service_id__in=top_service_ids).select_related('category')
+
+        # Serialize the data
+        serializer = FrequentlyUsedServiceSerializer(services, many=True)
+        return Response({
+            "status": "success",
+            "message": "Frequently used services fetched successfully.",
+            "data": serializer.data
+        })
+
+#Call Back Request
+class CallbackRequestCreateOrUpdateAPIView(APIView):
+    
+    def post(self, request, *args, **kwargs):
+        # Extract the data from the request
+        name = request.data.get('name')
+        phone = request.data.get('phone')
+        user_id = request.data.get('user')  # Optional
+
+        # Check if name and phone are provided
+        if not name or not phone:
+            return Response({"error": "Both 'name' and 'phone' are required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Try to find an existing CallbackRequest with the same phone number
+        callback_request, created = CallbackRequest.objects.update_or_create(
+            phone=phone,
+            defaults={'name': name, 'user_id': user_id, 'status': 1}
+        )
+        
+        # Serialize the data and return the response
+        serializer = CallbackRequestSerializer(callback_request)
+        if created:
+            return Response({"message": "Callback request created successfully", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"message": "Callback request updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
+
+#Newsletter 
+class NewsletterSubscriptionAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        email = request.data.get('email')
+
+        if not email:
+            return Response({"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if the email already exists in the database
+        if Newsletter.objects.filter(email=email).exists():
+            return Response({"message": "You are already subscribed."}, status=status.HTTP_200_OK)
+        
+        # Otherwise, create a new subscription
+        newsletter = Newsletter.objects.create(email=email)
+        serializer = NewsletterSerializer(newsletter)
+        return Response({"message": "Subscribed successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
+
+
+#Get city name
+class CityViewSet(viewsets.ViewSet):
+    def list(self, request):
+        cities = Locations.objects.annotate(city_length=Length('city')).filter(city_length__gt=4).values_list('city', flat=True).distinct()
+        return Response({"cities": cities})
+    
+
+#Get review with counting and rating
+class ProvidersReviewViewSet(viewsets.ViewSet):
+    def retrieve(self, request, pk=None):
+        try:
+            provider = ServiceProvider.objects.get(pk=pk)
+
+            active_reviews = provider.reviews.filter(status=1)
+
+            # Serialize the data
+            provider_data = ServicesProviderSerializer(provider)
+            reviews_data = ReviewsSerializer(active_reviews, many=True)
+
+            return Response({
+                "status": "success",  # Add status
+                "message": "Reviews retrieved successfully",  # Add message
+                **provider_data.data,  
+                'reviews': reviews_data.data,  
+            })
+
+        except ServiceProvider.DoesNotExist:
+            return Response({
+                "status": "error",  # Add error status
+                "message": "Service provider not found",  # Add error message
+            }, status=404)
+
+#My bookings 
+class UserBookingsAPIView(APIView):
+    
+    def get(self, request):
+        user_id = request.query_params.get('user_id')
+        if user_id:
+            # Filter appointments for the user where otp is not null and not zero
+            # Order the results by 'created_at' field in descending order
+            bookings = Appointment.objects.filter(user_id=user_id).exclude(otp__isnull=True).exclude(otp=0).order_by('-created_at')
+            serializer = BookingSerializer(bookings, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+#Get My Profile
+@api_view(['GET', 'PUT'])
+def user_details(request):
+    user_id = request.data.get('user_id') if request.method == 'PUT' else request.query_params.get('user_id')
+
+    if not user_id:
+        return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(user_id=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = UsersSerializer(user)
+        return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        serializer = UsersSerializer(user, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+#Contact Form
+class ContactFormView(APIView):
+    def post(self, request):
+        serializer = ContactFormSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"status":"success","message": "Form submitted successfully"}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+#Recommended Best
+class RecommendedProvidersView(APIView):
+    def get(self, request):
+        # Retrieve query parameters
+        lat = request.query_params.get('latitude')
+        lng = request.query_params.get('longitude')
+        radius = float(request.query_params.get('radius', 50))  # Default radius 50 km
+        service_type_id = request.query_params.get('service_type_id')  # Optional
+
+        # Validate latitude and longitude
+        if not lat or not lng:
+            return Response(
+                {
+                    "status": "error",
+                    "message": "Latitude and longitude are required.",
+                    "data": None,
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Convert latitude and longitude to float
+            lat = float(lat)
+            lng = float(lng)
+
+            # Haversine formula to calculate distance in km between two lat/lng points
+            distance_expression = ExpressionWrapper(
+                6371 * ACos(
+                    Cos(Radians(lat))
+                    * Cos(Radians(F("latitude")))
+                    * Cos(Radians(F("longitude")) - Radians(lng))
+                    + Sin(Radians(lat)) * Sin(Radians(F("latitude")))
+                ),
+                output_field=FloatField()
+            )
+
+            # Filter locations within the specified radius
+            locations_within_radius = Locations.objects.annotate(
+                distance_km=distance_expression
+            ).filter(distance_km__lte=radius)
+
+            # Filter service providers linked to the locations
+            providers_query = ServiceProvider.objects.filter(
+                address_id__in=locations_within_radius
+            )
+
+            # Filter providers by service type, if specified
+            if service_type_id:
+                providers_query = providers_query.filter(
+                    service_type_id=service_type_id
+                )
+
+            # Annotate provider query with location and other details
+            providers_query = providers_query.annotate(
+                latitude=F("address__latitude"),
+                longitude=F("address__longitude"),
+                city=F("address__city"),
+                state=F("address__state"),
+                verified=Value(True, output_field=FloatField())
+            ).order_by("latitude")[:10]
+
+            # Get provider IDs
+            provider_ids = providers_query.values_list('provider_id', flat=True)
+
+            # Get dynamic rating and review count for each provider
+            ratings = Review.objects.filter(provider_id__in=provider_ids).values(
+                'provider_id'
+            ).annotate(
+                average_rating=Avg('rating'),
+                review_count=Count('review_id')  # Count number of reviews for each provider
+            )
+
+            # Create a mapping of provider_id to its ratings and review count
+            rating_map = {
+                rating['provider_id']: {
+                    'average_rating': rating['average_rating'],
+                    'review_count': rating['review_count']
+                }
+                for rating in ratings
+            }
+
+            # Serialize provider data
+            serializer = ServiceProviderSerializer(providers_query, many=True)
+
+            # Add image URLs, ratings, and review counts to serialized data
+            for provider in serializer.data:
+                provider_id = provider.get('provider_id')
+
+                # Append base URL to image URL
+                if provider.get("image_url"):
+                    provider["image_url"] = f"{settings.BASE_URL}{provider['image_url']}"
+
+                # Add the dynamic rating value
+                provider["rating"] = round(rating_map.get(provider_id, {}).get('average_rating', 0), 1)
+
+                # Format and add the review count
+                review_count = rating_map.get(provider_id, {}).get('review_count', 0)
+                provider["review_count"] = f"{review_count} review{'s' if review_count != 1 else ''}"
+
+            # Return successful response
+            return Response(
+                {
+                    "status": "success",
+                    "message": "Providers retrieved successfully.",
+                    "data": serializer.data,
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            # Return error response
+            return Response(
+                {
+                    "status": "error",
+                    "message": "An error occurred while retrieving providers.",
+                    "data": {"error": str(e)},
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+#SMS integration
+class MindfulBeautySendSMS:
+    def __init__(self):
+        self.url = 'http://pay4sms.in'  # Base URL for the SMS API
+        self.token = '8f897a8f86701c6b468439a91383527d'  # API Token
+        self.credit = '2'  # Credit per SMS
+        self.sender = 'MFBPLT'  # Sender ID for Mindful Beauty
+        self.message_template = "Dear {name} , {otp} is the OTP for Login verification. Please do not share this code with anyone. Thank you for logging with us. mindfulbeauty.com"
+
+    def send_sms(self, name, otp, numbers, validity=10):
+        """
+        Sends an SMS with the OTP to the specified phone number.
+
+        Args:
+            otp (str): The OTP to be sent.
+            numbers (str): The recipient's phone number(s), comma-separated if multiple.
+            validity (int): The validity period for the OTP in minutes.
+
+        Returns:
+            str: Response text from the SMS API.
+        """
+        message = self.message_template.format(name=name, otp=otp, validity=validity)
+        message = requests.utils.quote(message)  # URL encode the message
+        sms_url = f"{self.url}/sendsms/?token={self.token}&credit={self.credit}&sender={self.sender}&number={numbers}&message={message}"
+        print(f"SMS API URL: {sms_url}")  # Log the full API URL for debugging
+        response = requests.get(sms_url)
+        return response.text
+
+    def check_dlr(self, message_id):
+        """
+        Checks the delivery report (DLR) status for a specific message.
+
+        Args:
+            message_id (str): The message ID received from the SMS API.
+
+        Returns:
+            str: Response text from the SMS API for DLR status.
+        """
+        dlr_url = f"{self.url}/Dlrcheck/?token={self.token}&msgid={message_id}"
+        response = requests.get(dlr_url)
+        return response.text
+
+    def available_credit(self):
+        """
+        Checks the available SMS credit balance.
+
+        Returns:
+            str: Response text from the SMS API for available credit balance.
+        """
+        credit_url = f"{self.url}/Credit-Balance/?token={self.token}"
+        response = requests.get(credit_url)
+        return response.text
