@@ -514,7 +514,7 @@ class Serviceprovidertype(models.Model):
          # Build the correct image URL using BASE_URL and MEDIA_URL from settings
          image_url = row_dict.get('image_url')
          if image_url:
-             row_dict['image_url'] = f"{settings.BASE_URL}{settings.MEDIA_URL}{image_url}"
+             row_dict['image_url'] = f"{settings.MEDIA_URL}{image_url}"
      
          data.append(row_dict)
 
@@ -585,7 +585,7 @@ class Serviceprovidertype(models.Model):
               # Append the base URL and media URL to image_url if it exists
               image_url = row_dict.get('image_url')
               if image_url:
-                  row_dict['image_url'] = f"{settings.BASE_URL}{settings.MEDIA_URL}{image_url}"
+                  row_dict['image_url'] = f"{settings.MEDIA_URL}{image_url}"
   
               # Get reviews, calculate average rating and review count
               rating_query = """
@@ -672,7 +672,7 @@ class Serviceprovidertype(models.Model):
      for row in unique_data:
          image = row.get('image')
          if image:
-             row['image'] = f"{settings.BASE_URL}{settings.MEDIA_URL}{image}"
+             row['image'] = f"{settings.MEDIA_URL}{image}"
  
      return unique_data
 
@@ -709,7 +709,7 @@ class Serviceprovidertype(models.Model):
       for row in data:
           profile_image = row.get('profile_image')
           if profile_image:
-              row['profile_image'] = f"{settings.BASE_URL}{settings.MEDIA_URL}{profile_image}"
+              row['profile_image'] = f"{settings.MEDIA_URL}{profile_image}"
   
       return data
     
@@ -737,7 +737,7 @@ class Serviceprovidertype(models.Model):
         for row in data:
             image_url = row.get('image')
             if image_url:
-                row['image'] = f"{settings.BASE_URL}{settings.MEDIA_URL}{image_url}"
+                row['image'] = f"{settings.MEDIA_URL}{image_url}"
 
         return data
     
@@ -867,7 +867,7 @@ class Serviceprovidertype(models.Model):
                      # Append the base URL and media URL to service_image if it exists
                      service_image = row_dict.get('service_image')
                      if service_image:
-                         row_dict['service_image'] = f"{settings.BASE_URL}{settings.MEDIA_URL}{service_image}"
+                         row_dict['service_image'] = f"{settings.MEDIA_URL}{service_image}"
  
                      # Handle package_services, checking if it exists
                      package_services = row_dict.get('package_services')
@@ -948,7 +948,7 @@ class Serviceprovidertype(models.Model):
             # Append base URL to service_image if it exists
             service_image = row_dict.get('service_image')
             if service_image:
-                row_dict['service_image'] = f"{settings.BASE_URL}{settings.MEDIA_URL}{service_image}"
+                row_dict['service_image'] = f"{settings.MEDIA_URL}{service_image}"
 
             data.append(row_dict)
 

@@ -366,7 +366,8 @@ class FilterAPIView(APIView):
                     if distance_km <= float(radius):
                         image_url = None
                         if provider.image_url:
-                            image_url = base_url + settings.MEDIA_URL + str(provider.image_url)
+                            # image_url = base_url + settings.MEDIA_URL + str(provider.image_url)
+                            image_url = settings.MEDIA_URL + str(provider.image_url)
                         
                         # Retrieve all services offered by the provider
                         all_services = Serviceprovidertype.objects.filter(provider_id=provider).select_related('service_id')
