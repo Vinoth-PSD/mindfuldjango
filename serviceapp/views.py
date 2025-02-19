@@ -4228,4 +4228,267 @@ class DeleteServiceProvider(APIView):
                 "status": "failure",
                 "message": "Service provider not found."
             }, status=status.HTTP_404_NOT_FOUND)
+        
+
+#Provider Invoice
+def generate_sales_transaction_pdf(request):
+    try:
+        # Get transaction_id from query parameters
+        id = request.GET.get('id')
+        if not id:
+            return HttpResponse("Transaction ID is required", status=400)
+        
+        # Fetch transaction details
+        transaction = get_object_or_404(ProviderTransactions, id=id)
+        provider = get_object_or_404(ServiceProvider, provider_id=transaction.provider.provider_id)
+        
+        # Prepare transaction data
+        invoice_data = {
+            'provider': {
+                'name': provider.name,
+                'owner_name': provider.owner_name,
+                'phone': provider.phone,
+            },
+            'transaction': {
+                'date': transaction.date.strftime("%d-%m-%Y"),
+                'amount': f"{transaction.amount:.2f}",
+                'cgst': f"{transaction.cgst:.2f}",
+                'sgst': f"{transaction.sgst:.2f}",
+                'total_amount': f"{transaction.total_amount:.2f}",
+                'payment_type': transaction.payment_type,
+                'transaction_id': transaction.transaction_id,
+                'order_id': transaction.order_id,
+                'status': "Paid",  # Static value as requested
+                'credits': f"{transaction.amount:.2f}"
+            }
+        }
+        
+        # Define HTML content for PDF
+        html_content = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Transaction Invoice</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 30px; color: #333; }
+                .header { text-align: center; font-size: 22px; font-weight: bold; margin-bottom: 15px; }
+                .section { margin-bottom: 15px; font-size: 14px; }
+                .details-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                .details-table th, .details-table td { border: 1px solid #ddd; padding: 10px; text-align: center; font-size: 14px; }
+                .details-table th { background-color: #f4f4f4; font-weight: bold; }
+                .totals { text-align: right; font-size: 16px; font-weight: bold; margin-top: 15px; }
+                .payment-status { font-weight: bold; }
+                .invoice-box {
+                    border: 1px solid #ccc;
+                    padding: 15px;
+                    width: 85%;
+                    margin: 20px auto;
+                    text-align: center;
+                    background-color: #f9f9f9;
+                    border-radius: 6px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">Transaction Invoice</div>
+
+            <div class="section">
+                <strong>Provider Details:</strong><br>
+                {{ invoice.provider.name }} | {{ invoice.provider.phone }}<br>
+                Owner: {{ invoice.provider.owner_name }}
+            </div>
+
+            <div class="section">
+                <strong>Transaction Details:</strong><br>
+                <strong>Transaction ID:</strong> {{ invoice.transaction.transaction_id }}<br>
+                <strong>Order ID:</strong> {{ invoice.transaction.order_id }}<br>
+                <strong>Date:</strong> {{ invoice.transaction.date }}<br>
+                <strong>Payment Mode:</strong> {{ invoice.transaction.payment_type }}<br>
+                <strong>Payment Status:</strong> <span class="payment-status">{{ invoice.transaction.status }}</span>
+            </div>
+
+            <div class="invoice-box">
+                <table class="details-table">
+                    <tr>
+                        <th>Item</th>
+                        <th>Credits</th>
+                        <th>SGST (Rs.)</th>
+                        <th>CGST (Rs.)</th>
+                        <th>Amount (Rs.)</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Wallet Recharge</strong></td>
+                        <td>{{ invoice.transaction.credits }}</td>
+                        <td>{{ invoice.transaction.sgst }}</td>
+                        <td>{{ invoice.transaction.cgst }}</td>
+                        <td>{{ invoice.transaction.amount }}</td>
+
+                    </tr>
+                </table>
+            </div>
+
+            <div class="totals">
+                <p>Total: Rs. {{ invoice.transaction.total_amount }}</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Render the template
+        template = Template(html_content)
+        context = Context({'invoice': invoice_data})
+        html = template.render(context)
+        
+        # Generate the PDF
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{transaction.transaction_id}.pdf"'
+        result = io.BytesIO()
+        pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
+        
+        if not pdf.err:
+            response.write(result.getvalue())
+            return response
+        else:
+            return HttpResponse("Error generating PDF", status=500)
+    
+    except Exception as e:
+        return HttpResponse(f"Error: {str(e)}", status=400)
+
+
+#User CSV Download
+class DownloadSalesTransactionCSVAPIView(APIView):
+    def get(self, request):
+        provider_id = request.query_params.get('provider_id')
+
+        if not provider_id:
+            return JsonResponse({"error": "Provider ID is required"}, status=400)
+
+        query = """
+            SELECT 
+                a.appointment_id AS order_id,
+                a.appointment_date,
+                u.name AS user_name,
+                u.phone,
+                a.service_id_new,
+                p.amount,
+                p.sgst,
+                p.cgst,
+                p.grand_total,
+                p.payment_mode,
+                p.payment_status AS paystatus,
+                s.status_name AS appointment_status,
+                loc.city,
+                b.branch_name,
+                b.phone AS branch_phone
+            FROM beautyapp_payment p
+            INNER JOIN beautyapp_appointment a ON p.appointment_id = a.appointment_id
+            INNER JOIN beautyapp_user u ON a.user_id = u.user_id
+            INNER JOIN beautyapp_status s ON a.status_id = s.status_id
+            LEFT JOIN branches b ON a.branch_id = b.branch_id
+            LEFT JOIN locations loc ON b.location_id = loc.location_id
+            WHERE a.provider_id = %s
+        """
+
+        params = [provider_id]
+
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="user_transactions.csv"'
+
+        writer = csv.writer(response)
+
+        # Write header row
+        writer.writerow([
+            "Order ID", "Appointment Date", "City", "User Name", "Phone",
+            "Services", "Amount", "SGST", "CGST", "Total", "Payment Mode",
+            "Payment Status", "Appointment Status", "Branch Name", "Branch Phone"
+        ])
+
+        # Write data rows
+        for row in rows:
+            service_ids = row[4].split(',') if row[4] else []
+            services = []
+
+            if service_ids:
+                with connection.cursor() as service_cursor:
+                    service_query = """
+                        SELECT service_name 
+                        FROM beautyapp_services 
+                        WHERE service_id IN %s
+                    """
+                    service_cursor.execute(service_query, [tuple(service_ids)])
+                    services = [service[0] for service in service_cursor.fetchall()]
+
+            writer.writerow([
+                row[0], row[1], row[12], row[2], row[3],
+                ", ".join(services), float(row[5]), row[6], row[7],
+                row[8], row[9], row[10], row[11], row[13], row[14]
+            ])
+
+        return response
+
+#Provider CSV Download
+class DownloadAllSalesTransactionCSVAPIView(APIView):
+    def get(self, request):
+        query = """
+        SELECT 
+            pt.id,  
+            pt.provider_id,  
+            pt.date,
+            pt.amount,
+            pt.amount AS credits,  -- Credits column
+            pt.type,
+            pt.payment_type,
+            pt.transaction_id,
+            pt.order_id,
+            pt.total_amount,
+            pt.status,
+            pt.pay_id,
+            pt.cgst,
+            pt.sgst,
+            sp.name AS provider_name,
+            sp.owner_name,
+            sp.phone AS provider_phone,
+            pt.payment_type AS payment_mode,
+            st.type_name AS service_type
+        FROM provider_transactions pt
+        INNER JOIN serviceproviders sp ON pt.provider_id = sp.provider_id
+        INNER JOIN beautyapp_servicetypes st ON sp.service_type_id = st.service_type_id
+        WHERE pt.status = 'Success'
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+        # Create HTTP response with CSV headers
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="provider_transactions.csv"'
+
+        # Create CSV writer
+        writer = csv.writer(response)
+
+        # Write the header row
+        writer.writerow([
+            "ID", "Provider ID", "Date", "Amount", "Credits", "Type", "Payment Type",
+            "Transaction ID", "Order ID", "Total Amount", "Status", "Pay ID",
+            "CGST", "SGST", "Provider Name", "Owner Name", "Provider Phone",
+            "Payment Mode", "Service Type"
+        ])
+
+        # Write data rows
+        for row in rows:
+            writer.writerow([
+                row[0], row[1], row[2], float(row[3]), float(row[4]), row[5], row[6],
+                row[7], row[8], float(row[9]), row[10], row[11],
+                float(row[12]), float(row[13]), row[14], row[15], row[16],
+                row[17]
+            ])
+
+        return response
 
