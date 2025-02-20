@@ -460,7 +460,7 @@ class ProviderTransactions(models.Model):
         choices=[("Pending", "Pending"), ("Success", "Success"), ("Failed", "Failed")],
         default="Pending"
     )
-    pay_id = models.CharField(max_length=10, unique=True, blank=True, null=True)
+    pay_id = models.CharField(max_length=10, unique=False, blank=True, null=True)  
     cgst = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     sgst = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
@@ -469,7 +469,7 @@ class ProviderTransactions(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pay_id:
-            with transaction.atomic():  # Ensures uniqueness even in concurrent requests
+            with transaction.atomic():  # Ensure atomicity to prevent duplicate keys
                 last_transaction = ProviderTransactions.objects.select_for_update().order_by('-id').first()
                 if last_transaction and last_transaction.pay_id:
                     last_number = int(last_transaction.pay_id[2:])  # Extract number from "MB001"
