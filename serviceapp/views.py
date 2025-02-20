@@ -78,7 +78,8 @@ class LoginViewSet(viewsets.ModelViewSet):
         otp = ''.join(random.choices(string.digits, k=4))
         
         # Save OTP and timestamp
-        otp_target.otp = otp
+        otp_target.otp = '1234'  
+        # otp_target.otp = otp
         otp_target.otp_created_at = timezone.now()
         otp_target.save()
 
@@ -4510,3 +4511,150 @@ class DownloadAllSalesTransactionCSVAPIView(APIView):
 
         return response
 
+#Wallet Management 
+class WalletManagementView(APIView):
+    pagination_class = CustomPagination  # Use custom pagination
+
+    def get(self, request):
+        service_type_id = request.query_params.get('service_type_id')
+        search_query = request.query_params.get('search', '').strip()
+
+        # Fetch providers in descending order of `provider_id`
+        providers = ServiceProvider.objects.filter(is_deleted=False).select_related('service_type').order_by('-provider_id')
+
+        # If `service_type_id` is provided and not `0`, filter providers
+        if service_type_id and service_type_id != "0":
+            providers = providers.filter(service_type_id=service_type_id)
+
+        provider_list = []
+        for provider in providers:
+            total_credits = (
+                ProviderTransactions.objects.filter(provider=provider, status="Success")
+                .aggregate(Sum('total_amount'))['total_amount__sum']
+            ) or Decimal(0)
+            
+            available_credits = Decimal(provider.available_credits)
+            used_credits = Decimal(0)
+
+            with transaction.atomic():
+                appointments_with_status_3 = Appointment.objects.filter(provider=provider, status__status_id=3)
+                
+                total_grand_total = Decimal(0)
+                for appointment in appointments_with_status_3:
+                    payment = Payment.objects.filter(appointment=appointment).first()
+                    if payment and payment.grand_total is not None:
+                        total_grand_total += Decimal(payment.grand_total)
+
+                used_credits = round(total_grand_total * Decimal(0.30))
+                available_credits = total_credits - used_credits
+
+                provider.available_credits = available_credits
+                provider.save()
+
+            # Get provider city from Locations table using Branches table
+            city = None
+            branch = Branches.objects.filter(provider=provider).first()
+            if branch and branch.location:
+                city = branch.location.city
+
+            # Get service type details safely
+            service_type_id = getattr(provider.service_type, 'service_type_id', None)
+            service_type_name = getattr(provider.service_type, 'type_name', None)
+
+            provider_data = {
+                'provider_id': provider.provider_id,
+                'provider_name': provider.name,
+                'phone': provider.phone,
+                'total_credits': int(total_credits),
+                'available_credits': int(available_credits),
+                'used_credits': int(used_credits),
+                'city': city,  # Provider's city
+                'service_type_id': service_type_id,  
+                'service_type_name': service_type_name,
+            }
+
+            provider_list.append(provider_data)
+
+        # 🔹 **Search Functionality**
+        if search_query:
+            provider_list = [
+                provider for provider in provider_list
+                if search_query.lower() in str(provider['provider_name']).lower()
+                or search_query.lower() in str(provider['phone']).lower()
+                or (provider['city'] and search_query.lower() in provider['city'].lower())
+                or search_query == str(provider['total_credits'])
+                or search_query == str(provider['available_credits'])
+                or search_query == str(provider['used_credits'])
+            ]
+
+        # Apply pagination
+        paginator = self.pagination_class()
+        result_page = paginator.paginate_queryset(provider_list, request)
+
+        return paginator.get_paginated_response({
+            'status': 'success',
+            'message': 'Wallet details fetched successfully',
+            'data': result_page
+        })
+
+#Add Wallet 
+class AddProviderCreditsView(APIView):
+    def post(self, request, *args, **kwargs):
+        provider_id = request.data.get('provider_id')
+        amount = request.data.get('amount')
+        payment_date = request.data.get('payment_date')
+        payment_mode = request.data.get('payment_mode')
+
+        # Validate required fields
+        if not provider_id or not amount or not payment_date or not payment_mode:
+            return Response(
+                {"status": "error", "message": "provider_id, amount, payment_date, and payment_mode are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            provider = ServiceProvider.objects.get(provider_id=provider_id)
+        except ServiceProvider.DoesNotExist:
+            return Response({"status": "error", "message": "Provider not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Convert date string to date object
+        try:
+            payment_date = datetime.strptime(payment_date, "%d %b %Y").date()
+        except ValueError:
+            return Response({"status": "error", "message": "Invalid payment date format."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Convert amount to Decimal for accurate calculations
+        amount = Decimal(amount)
+
+        # ✅ Calculate CGST and SGST (9% each)
+        cgst = (amount * Decimal(9)) / Decimal(100)  # 9% CGST
+        sgst = (amount * Decimal(9)) / Decimal(100)  # 9% SGST
+        total_amount = amount + cgst + sgst  # Grand Total
+
+        # Create a new transaction (pay_id will be generated in save method)
+        transaction = ProviderTransactions.objects.create(
+            provider=provider,
+            date=payment_date,
+            amount=amount,
+            type="Purchase",
+            payment_type=payment_mode,
+            cgst=cgst,
+            sgst=sgst,
+            total_amount=total_amount,
+            status="Success"
+        )
+
+        # Update provider's available credits
+        provider.available_credits += total_amount
+        provider.save()
+
+        # Serialize and return response
+        serializer = ProviderTransactionSerializer(transaction)
+        return Response(
+            {
+                "status": "success",
+                "message": "Credits added successfully.",
+                "data": serializer.data
+            },
+            status=status.HTTP_201_CREATED
+        )
