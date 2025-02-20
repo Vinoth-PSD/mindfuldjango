@@ -4080,10 +4080,10 @@ class CouponListAPIView(generics.ListAPIView):
         coupons = self.get_queryset()
 
         # Optional filters for status or month
-        status_filter = request.query_params.get('status')
+        status_filter = request.query_params.get('status', '0')  # Default to '0' (fetch all)
         month_filter = request.query_params.get('month')
 
-        if status_filter:
+        if status_filter and status_filter != '0':  # Apply filter only if status is not '0'
             coupons = coupons.filter(status=status_filter)
 
         if month_filter:
@@ -4121,8 +4121,25 @@ class ExpiredCouponListAPIView(generics.ListAPIView):
         return Coupon.objects.filter(valid_until__lt=today, is_deleted=False)
 
     def get(self, request, *args, **kwargs):
-        """Return expired coupons with pagination."""
+        """Return expired coupons with optional filters and pagination."""
         expired_coupons = self.get_queryset()
+
+        # Optional filters for status or month
+        status_filter = request.query_params.get('status', '0')  # Default to '0' (fetch all)
+        month_filter = request.query_params.get('month')
+
+        if status_filter and status_filter != '0':  # Apply filter only if status is not '0'
+            expired_coupons = expired_coupons.filter(status=status_filter)
+
+        if month_filter:
+            try:
+                month_number = datetime.strptime(month_filter, "%B").month
+                expired_coupons = expired_coupons.filter(valid_from__month=month_number)
+            except ValueError:
+                return Response(
+                    {"status": "failure", "message": "Invalid month format. Use full month name."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         # Apply pagination
         page = self.paginate_queryset(expired_coupons)
