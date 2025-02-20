@@ -5,6 +5,8 @@ import os
 from django.conf import settings
 from django.db.models import Sum
 from .storages import AzureMediaStorage
+from django.db import transaction
+
 
 
 # class Login(models.Model):
@@ -450,30 +452,31 @@ class ProviderTransactions(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     type = models.CharField(max_length=50)
     payment_type = models.CharField(max_length=50)
-    transaction_id = models.CharField(max_length=50, unique=True, null=True, blank=True)  # Razorpay Payment ID
-    order_id = models.CharField(max_length=50, unique=True, null=True, blank=True)  # Razorpay Order ID
+    transaction_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    order_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(
         max_length=20,
         choices=[("Pending", "Pending"), ("Success", "Success"), ("Failed", "Failed")],
         default="Pending"
-    )  # Default to Pending
-    pay_id = models.CharField(max_length=10, unique=True, blank=True, null=True)  # MB001 Format
-    cgst = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # Changed to DecimalField
-    sgst = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # Changed to DecimalField
+    )
+    pay_id = models.CharField(max_length=10, unique=True, blank=True, null=True)
+    cgst = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    sgst = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     class Meta:
         db_table = 'provider_transactions'
 
     def save(self, *args, **kwargs):
-        if not self.pay_id:  # Generate pay_id only if it's not set
-            last_transaction = ProviderTransactions.objects.order_by('-id').first()
-            if last_transaction and last_transaction.pay_id:
-                last_number = int(last_transaction.pay_id[2:])  # Extract number from "MB001"
-                new_number = last_number + 1
-            else:
-                new_number = 1
-            self.pay_id = f"MB{new_number:03d}"  # Format as MB001, MB002, etc.
+        if not self.pay_id:
+            with transaction.atomic():  # Ensures uniqueness even in concurrent requests
+                last_transaction = ProviderTransactions.objects.select_for_update().order_by('-id').first()
+                if last_transaction and last_transaction.pay_id:
+                    last_number = int(last_transaction.pay_id[2:])  # Extract number from "MB001"
+                    new_number = last_number + 1
+                else:
+                    new_number = 1
+                self.pay_id = f"MB{new_number:03d}"  # Format as MB001, MB002, etc.
 
         super(ProviderTransactions, self).save(*args, **kwargs)
 
