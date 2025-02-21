@@ -4548,26 +4548,26 @@ class ProviderWalletManagementView(APIView):
         service_type_id = request.query_params.get('service_type_id')
         search_query = request.query_params.get('search', '').strip()
 
-        # Fetch providers in descending order of `provider_id`
         providers = ServiceProvider.objects.filter(is_deleted=False).select_related('service_type').order_by('-provider_id')
 
-        # If `service_type_id` is provided and not `0`, filter providers
         if service_type_id and service_type_id != "0":
             providers = providers.filter(service_type_id=service_type_id)
 
         provider_list = []
+        provider_updates = []  # Collect updates to avoid multiple saves
+
         for provider in providers:
             total_credits = (
                 ProviderTransactions.objects.filter(provider=provider, status="Success")
                 .aggregate(Sum('total_amount'))['total_amount__sum']
             ) or Decimal(0)
-            
+
             available_credits = Decimal(provider.available_credits)
             used_credits = Decimal(0)
 
             with transaction.atomic():
                 appointments_with_status_3 = Appointment.objects.filter(provider=provider, status__status_id=3)
-                
+
                 total_grand_total = Decimal(0)
                 for appointment in appointments_with_status_3:
                     payment = Payment.objects.filter(appointment=appointment).first()
@@ -4577,16 +4577,15 @@ class ProviderWalletManagementView(APIView):
                 used_credits = round(total_grand_total * Decimal(0.30))
                 available_credits = total_credits - used_credits
 
-                provider.available_credits = available_credits
-                provider.save()
+                # Store updates instead of calling save() in each iteration
+                provider_updates.append((provider.provider_id, available_credits))
 
-            # Get provider city from Locations table using Branches table
+            # Fetch provider's city
             city = None
             branch = Branches.objects.filter(provider=provider).first()
             if branch and branch.location:
                 city = branch.location.city
 
-            # Get service type details safely
             service_type_id = getattr(provider.service_type, 'service_type_id', None)
             service_type_name = getattr(provider.service_type, 'type_name', None)
 
@@ -4597,14 +4596,18 @@ class ProviderWalletManagementView(APIView):
                 'total_credits': int(total_credits),
                 'available_credits': int(available_credits),
                 'used_credits': int(used_credits),
-                'city': city,  # Provider's city
-                'service_type_id': service_type_id,  
+                'city': city,
+                'service_type_id': service_type_id,
                 'service_type_name': service_type_name,
             }
 
             provider_list.append(provider_data)
 
-        # 🔹 **Search Functionality**
+        # Bulk update providers to optimize DB performance
+        for provider_id, updated_credits in provider_updates:
+            ServiceProvider.objects.filter(provider_id=provider_id).update(available_credits=updated_credits)
+
+        # Search filter
         if search_query:
             provider_list = [
                 provider for provider in provider_list
@@ -4625,6 +4628,7 @@ class ProviderWalletManagementView(APIView):
             'message': 'Wallet details fetched successfully',
             'data': result_page
         })
+
 
 
 #Add Wallet 
