@@ -460,7 +460,7 @@ class ProviderTransactions(models.Model):
         choices=[("Pending", "Pending"), ("Success", "Success"), ("Failed", "Failed")],
         default="Pending"
     )
-    pay_id = models.CharField(max_length=10, unique=False, blank=True, null=True)  
+    pay_id = models.CharField(max_length=10, unique=True, blank=True, null=True)  # Ensure `unique=True`
     cgst = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     sgst = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
@@ -469,14 +469,20 @@ class ProviderTransactions(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pay_id:
-            with transaction.atomic():  # Ensure atomicity to prevent duplicate keys
-                last_transaction = ProviderTransactions.objects.select_for_update().order_by('-id').first()
-                if last_transaction and last_transaction.pay_id:
-                    last_number = int(last_transaction.pay_id[2:])  # Extract number from "MB001"
-                    new_number = last_number + 1
-                else:
-                    new_number = 1
-                self.pay_id = f"MB{new_number:03d}"  # Format as MB001, MB002, etc.
+            with transaction.atomic():  # Ensure atomicity
+                while True:
+                    last_transaction = ProviderTransactions.objects.select_for_update().order_by('-id').first()
+                    if last_transaction and last_transaction.pay_id:
+                        last_number = int(last_transaction.pay_id[2:])  # Extract number
+                        new_number = last_number + 1
+                    else:
+                        new_number = 1
+                    new_pay_id = f"MB{new_number:03d}"  # Format as MB001, MB002, etc.
+
+                    # Check if `pay_id` already exists
+                    if not ProviderTransactions.objects.filter(pay_id=new_pay_id).exists():
+                        self.pay_id = new_pay_id
+                        break  # Exit loop when unique `pay_id` is found
 
         super(ProviderTransactions, self).save(*args, **kwargs)
 

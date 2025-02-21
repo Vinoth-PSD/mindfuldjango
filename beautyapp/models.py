@@ -289,7 +289,7 @@ class Staff(models.Model):
     role = models.ForeignKey('Role', on_delete=models.SET_NULL, null=True, blank=True)  
     years_of_experience = models.IntegerField(blank=True, null=True)
     available_slots = models.JSONField(null=True, blank=True)
-    status = models.CharField(null=True, blank=True)
+    status = models.CharField(max_length=20, blank=True, null=True)  # Added max_length
     created_at = models.DateTimeField(default=timezone.now)
     phone = models.CharField(max_length=15, blank=True, null=True) 
     otp = models.IntegerField(blank=True, null=True)  

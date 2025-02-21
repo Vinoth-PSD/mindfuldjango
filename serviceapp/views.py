@@ -38,6 +38,8 @@ import hashlib
 from django.conf import settings
 from django.utils.timezone import now
 import csv
+import traceback
+
 
 
 
@@ -351,28 +353,31 @@ class ProviderTaxInfo(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, *args, **kwargs):
-        provider_id = request.data.get('provider')
+     provider_id = request.data.get('provider')
+ 
+     if not ServiceProvider.objects.filter(provider_id=provider_id).exists():
+         return Response({"error": "Provider not found."}, status=status.HTTP_400_BAD_REQUEST)
+ 
+     existing_tax_registration = ProviderTaxRegistration.objects.filter(provider_id=provider_id).first()
+ 
+     # Filter out None values to avoid passing None to file fields
+     data = {key: value for key, value in request.data.items() if value is not None}
+ 
+     if existing_tax_registration:
+         serializer = ProviderTaxRegistrationSerializer(existing_tax_registration, data=data, partial=True)
+     else:
+         serializer = ProviderTaxRegistrationSerializer(data=data)
+ 
+     if serializer.is_valid():
+         serializer.save()
+ 
+         # Add default permissions after saving tax info
+         self.add_default_permissions(provider_id)
+ 
+         return Response({"message": "Tax registration details saved successfully", "data": serializer.data}, status=status.HTTP_201_CREATED)
+     
+     return Response({"error": serializer.errors}, status=status.HTTP_200_OK)
 
-        if not ServiceProvider.objects.filter(provider_id=provider_id).exists():
-            return Response({"error": "Provider not found."}, status=status.HTTP_400_BAD_REQUEST)
-
-        existing_tax_registration = ProviderTaxRegistration.objects.filter(provider_id=provider_id).first()
-
-        if existing_tax_registration:
-            serializer = ProviderTaxRegistrationSerializer(existing_tax_registration, data=request.data, partial=True)
-        else:
-            serializer = ProviderTaxRegistrationSerializer(data=request.data)
-        
-        if serializer.is_valid():
-            # Save tax registration details
-            serializer.save()
-
-            # Add default permissions after saving tax info
-            self.add_default_permissions(provider_id)
-
-            return Response({"message": "Tax registration details saved successfully", "data": serializer.data}, status=status.HTTP_201_CREATED)
-        
-        return Response({"error": serializer.errors}, status=status.HTTP_200_OK)
 
     def add_default_permissions(self, provider_id):
         try:
@@ -818,28 +823,52 @@ class ReviewViewSet(viewsets.ModelViewSet):
     pagination_class = CustomPagination  # Use custom pagination
 
     def get_queryset(self):
-        # Get provider_id from query parameters
         provider_id = self.request.query_params.get('provider_id')
+        search_query = self.request.query_params.get('search', '').strip()
 
-        # Check if provider_id is provided, otherwise raise a validation error
         if not provider_id:
             raise ValidationError("provider_id is required")
 
-        # Filter reviews based on provider_id
-        reviews = Review.objects.filter(provider_id=provider_id).order_by('-created_at')  # Order by descending created_at
+        # Filter reviews by provider_id
+        reviews = Review.objects.filter(provider_id=provider_id).order_by('-created_at')
 
-        # Add order_id (appointment_id) to reviews and map service_id_new to service objects
+        # Preload related data
+        user_map = {user.user_id: user.name for user in User.objects.filter(user_id__in=reviews.values_list('user_id', flat=True))}
+        appointment_map = {
+            appointment.appointment_id: appointment
+            for appointment in Appointment.objects.filter(provider_id=provider_id, user_id__in=reviews.values_list('user_id', flat=True))
+        }
+
         for review in reviews:
-            appointment = Appointment.objects.filter(provider_id=review.provider_id, user_id=review.user_id).first()
+            appointment = appointment_map.get(review.user_id)
             if appointment:
                 review.order_id = appointment.appointment_id
 
                 # Get service objects from service_id_new
-                service_ids = appointment.service_id_new.split(',')  # Assuming service IDs are stored as CSV
+                service_ids = appointment.service_id_new.split(',')
                 service_objects = Services.objects.filter(service_id__in=service_ids)
 
                 # Convert services to array of objects
                 review.service_objects = [{"service_id": service.service_id, "service_name": service.service_name} for service in service_objects]
+
+        # Apply search filter
+        if search_query:
+            search_query = search_query.lower()
+            filtered_reviews = []
+            for review in reviews:
+                customer_name = user_map.get(review.user_id, "")
+                service_names = ", ".join(service['service_name'] for service in getattr(review, 'service_objects', []))
+
+                if (
+                    search_query in customer_name.lower()
+                    or search_query in str(review.comment).lower()
+                    or search_query in service_names.lower()
+                    or search_query == str(review.rating)
+                    or search_query == str(review.order_id)
+                ):
+                    filtered_reviews.append(review)
+
+            reviews = filtered_reviews
 
         return reviews
 
@@ -4512,7 +4541,7 @@ class DownloadAllSalesTransactionCSVAPIView(APIView):
         return response
 
 #Wallet Management 
-class WalletManagementView(APIView):
+class ProviderWalletManagementView(APIView):
     pagination_class = CustomPagination  # Use custom pagination
 
     def get(self, request):
@@ -4596,6 +4625,7 @@ class WalletManagementView(APIView):
             'message': 'Wallet details fetched successfully',
             'data': result_page
         })
+
 
 #Add Wallet 
 class AddProviderCreditsView(APIView):

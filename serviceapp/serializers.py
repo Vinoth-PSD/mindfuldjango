@@ -244,9 +244,19 @@ class ProviderBankDetailsSerializer(serializers.ModelSerializer):
         return value
 
 class ProviderTaxRegistrationSerializer(serializers.ModelSerializer):
+    tax_file = serializers.FileField(required=False, allow_null=True)
+    gst_file = serializers.FileField(required=False, allow_null=True)
+    identity_file = serializers.FileField(required=False, allow_null=True)
+    address_file = serializers.FileField(required=False, allow_null=True)
+
     class Meta:
         model = ProviderTaxRegistration
-        fields = ['provider', 'tax_identification_number', 'tax_file', 'gst_number', 'gst_file', 'proof_of_identity_type', 'proof_of_identity_number', 'identity_file', 'proof_of_address_type', 'address_file']
+        fields = [
+            'provider', 'tax_identification_number', 'tax_file',
+            'gst_number', 'gst_file', 'proof_of_identity_type',
+            'proof_of_identity_number', 'identity_file',
+            'proof_of_address_type', 'address_file'
+        ]
 
 
 class RoleSerializer(serializers.ModelSerializer):
