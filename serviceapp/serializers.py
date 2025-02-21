@@ -32,39 +32,42 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-     # Extract location and optional latitude/longitude
      location_name = validated_data.pop('location')
      latitude = validated_data.pop('latitude', None)
      longitude = validated_data.pop('longitude', None)
  
-     # Check if location exists, otherwise create a new one
-     location, created = Locations.objects.get_or_create(
-         city=location_name,
-         defaults={
-             'address_line1': '',
-             'address_line2': '',
-             'state': '',
-             'postal_code': 0,
-             'country': '',
-             'latitude': latitude if latitude is not None else 0.0,
-             'longitude': longitude if longitude is not None else 0.0,
-         }
-     )
+     # Try to get an existing location
+     location = Locations.objects.filter(city=location_name).first()
  
-     # Retrieve or create a branch for this location
-     branch, branch_created = Branches.objects.get_or_create(
-         location=location,
-         defaults={'branch_name': f'Default Branch for {location_name}'}
-     )
+     # If no location exists, create one
+     if not location:
+         location = Locations.objects.create(
+             city=location_name,
+             address_line1='',
+             address_line2='',
+             state='',
+             postal_code=0,
+             country='',
+             latitude=latitude if latitude is not None else 0.0,
+             longitude=longitude if longitude is not None else 0.0,
+         )
+ 
+     # Try to get an existing branch
+     branch = Branches.objects.filter(location=location).first()
+ 
+     # If no branch exists, create one
+     if not branch:
+         branch = Branches.objects.create(
+             location=location,
+             branch_name=f'Default Branch for {location_name}'
+         )
  
      # Assign the branch and address ID
      validated_data['branch'] = branch
      validated_data['address_id'] = location.location_id  
  
      # Create the ServiceProvider instance
-     service_provider = ServiceProvider.objects.create(**validated_data)
- 
-     return service_provider
+     return ServiceProvider.objects.create(**validated_data)
 
 
         
