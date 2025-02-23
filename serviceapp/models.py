@@ -139,7 +139,7 @@ class ProviderBankDetails(models.Model):
 def get_provider_upload_to(instance, filename):
     # Define the path where all files will be stored in the provider's specific folder
     provider_id = instance.provider.pk  
-    return os.path.join(f'serviceprovider/{provider_id}/{filename}')
+    return os.path.join(f'serviceprovider/{filename}')
 
 class ProviderTaxRegistration(models.Model):
     id = models.AutoField(primary_key=True)
