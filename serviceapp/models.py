@@ -51,7 +51,7 @@ class ServiceProvider(models.Model):
     years_of_experience = models.IntegerField(null=True, blank=True)  
     languages_spoken = models.TextField(null=True, blank=True)  
     travel_capability_kms = models.IntegerField(null=True, blank=True)  
-    certifications = models.FileField(upload_to='certifications/', storage=AzureMediaStorage(),null=True, blank=True) 
+    certifications = models.FileField(upload_to='certifications/', null=True, blank=True) 
     willing_to_work_holidays = models.TextField(null=True, blank=True)
     otp = models.IntegerField(null=True, blank=True) 
     otp_created_at = models.DateField(auto_now_add=True)  
@@ -139,20 +139,20 @@ class ProviderBankDetails(models.Model):
 def get_provider_upload_to(instance, filename):
     # Define the path where all files will be stored in the provider's specific folder
     provider_id = instance.provider.pk  
-    return os.path.join(f'serviceprovider/{filename}')
+    return os.path.join(f'serviceprovider/{provider_id}/{filename}')
 
 class ProviderTaxRegistration(models.Model):
     id = models.AutoField(primary_key=True)
     provider = models.ForeignKey('ServiceProvider', on_delete=models.CASCADE)
     tax_identification_number = models.CharField(max_length=50)
-    tax_file = models.FileField(upload_to=get_provider_upload_to, storage=AzureMediaStorage(),null=True, blank=True)
+    tax_file = models.FileField(upload_to=get_provider_upload_to, null=True, blank=True)
     gst_number = models.CharField(max_length=50)
-    gst_file = models.FileField(upload_to=get_provider_upload_to, storage=AzureMediaStorage(),null=True, blank=True)
+    gst_file = models.FileField(upload_to=get_provider_upload_to, null=True, blank=True)
     proof_of_identity_type = models.CharField(max_length=50)
     proof_of_identity_number = models.CharField(max_length=50)
-    identity_file = models.FileField(upload_to=get_provider_upload_to, storage=AzureMediaStorage(),null=True, blank=True)
+    identity_file = models.FileField(upload_to=get_provider_upload_to, null=True, blank=True)
     proof_of_address_type = models.CharField(max_length=50)
-    address_file = models.FileField(upload_to=get_provider_upload_to, storage=AzureMediaStorage(),null=True, blank=True)
+    address_file = models.FileField(upload_to=get_provider_upload_to, null=True, blank=True)
 
     class Meta:
         managed=False
