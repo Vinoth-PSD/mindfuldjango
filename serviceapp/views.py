@@ -3161,7 +3161,8 @@ class CreateOrderView(APIView):
             # Initialize Razorpay client
             client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
             order_data = {
-                "amount": int(float(amount) * 100),  # Convert to paisa
+                #"amount": int(float(amount) * 100),  # Convert to paisa
+                "amount": int(1 * 100),
                 "currency": currency,
                 "receipt": receipt,
                 "payment_capture": 1  # Auto capture payment
