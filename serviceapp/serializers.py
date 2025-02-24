@@ -782,10 +782,11 @@ class AppointmentSerializer(serializers.ModelSerializer):
     
 class SubcategoriesSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.category_name', read_only=True)
+    image = serializers.ImageField(required=False)  # Allow optional image upload
 
     class Meta:
         model = Subcategory
-        fields = ['subcategory_id', 'subcategory_name', 'category', 'category_name', 'status', 'is_deleted']
+        fields = ['subcategory_id', 'subcategory_name', 'category', 'category_name', 'status', 'is_deleted', 'image']
 
 class ServicesSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.category_name', read_only=True)

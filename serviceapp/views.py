@@ -1752,10 +1752,10 @@ class CategoryViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK)
         else:
             return Response({
-                "status": "failure",
+                "status": "success",
                 "message": "No categories found",
                 "data": []
-            },status=status.HTTP_404_NOT_FOUND)
+            },status=status.HTTP_200_OK)
         
 
 #subcategory
@@ -1765,31 +1765,38 @@ class SubcategoryViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Optionally filters subcategories by category_id.
+        Returns subcategories filtered by category_id.
+        If category_id is not provided, returns an empty queryset.
         """
-        queryset = super().get_queryset()
         category_id = self.request.query_params.get('category_id', None)
+        if not category_id:
+            return Subcategory.objects.none()  # Return empty queryset if no category_id
 
-        if category_id:
-            queryset = queryset.filter(category_id=category_id)
-
-        return queryset
+        return Subcategory.objects.filter(category_id=category_id, is_deleted=False).order_by('-subcategory_id')
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        if queryset.exists():
-            serializer = self.get_serializer(queryset, many=True)
-            return Response({
-                "status": "success",
-                "message": "Subcategories retrieved successfully",
-                "data": serializer.data
-            }, status=status.HTTP_200_OK)
-        else:
+        category_id = request.query_params.get('category_id', None)
+        if not category_id:
             return Response({
                 "status": "failure",
+                "message": "category_id is required"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = self.get_queryset()
+        if not queryset.exists():
+            return Response({
+                "status": "success",
                 "message": "No subcategories found",
                 "data": []
-            }, status=status.HTTP_404_NOT_FOUND)
+            }, status=status.HTTP_200_OK)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "status": "success",
+            "message": "Subcategories retrieved successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+
 
 #Services         
 class ServicesByCategorySubcategoryView(APIView):
@@ -3158,11 +3165,20 @@ class CreateOrderView(APIView):
                     "missing_fields": [field for field in ["amount", "receipt"] if not request.data.get(field)]
                 }, status=status.HTTP_400_BAD_REQUEST)
 
+            # Fetch provider details (assuming a Provider model exists)
+            provider_name = None
+            mobile_number = None
+
+            if provider_id:
+                provider = ServiceProvider.objects.filter(provider_id=provider_id).first()
+                if provider:
+                    provider_name = provider.name
+                    mobile_number = provider.phone
+
             # Initialize Razorpay client
             client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
             order_data = {
-                #"amount": int(float(amount) * 100),  # Convert to paisa
-                "amount": int(1 * 100),
+                "amount": int(float(amount) * 100),  # Convert to paisa
                 "currency": currency,
                 "receipt": receipt,
                 "payment_capture": 1  # Auto capture payment
@@ -3176,7 +3192,10 @@ class CreateOrderView(APIView):
             return Response({
                 "status": "success",
                 "message": "Order created successfully",
-                "order": order
+                "order": order,
+                "provider_id": provider_id,
+                "provider_name": provider_name,
+                "mobile_number": mobile_number
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:

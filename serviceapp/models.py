@@ -257,6 +257,7 @@ class Subcategory(models.Model):
     subcategory_name = models.CharField(max_length=100, unique=True)
     category = models.ForeignKey(Category, related_name='subcategories', on_delete=models.CASCADE)
     status = models.CharField(max_length=20, default='Active')
+    image = models.ImageField(upload_to='subcategories/', storage=AzureMediaStorage(), null=True, blank=True) 
     is_deleted = models.BooleanField(default=False)  
 
 
