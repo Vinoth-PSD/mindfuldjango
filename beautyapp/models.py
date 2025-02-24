@@ -222,7 +222,9 @@ class Services(models.Model):
     sku_value= models.CharField(max_length=255,null=True)
     service_time = models.CharField(max_length=50, null=True, blank=True)
     service_type = models.IntegerField(null=True, blank=True)  
-    package_services = models.TextField(null=True, blank=True)  
+    package_services = models.TextField(null=True, blank=True) 
+    is_deleted = models.BooleanField(default=False)  
+ 
 
 
 class Meta:

@@ -3600,7 +3600,7 @@ def delete_category(request):
 #Subcategory CRUD Operation
 @api_view(['GET'])
 def get_subcategories(request):
-    """Fetch subcategories grouped by category with optional search, category filtering, pagination, and descending order"""
+    """Fetch subcategories grouped by category with optional search, category filtering, and pagination per category"""
     
     search_query = request.query_params.get('search', '')  # Get search keyword
     category_id = request.query_params.get('category_id', None)  # Get category filter (if provided)
@@ -3613,23 +3613,21 @@ def get_subcategories(request):
     if category_id and category_id != "0":  # If category_id is provided and NOT 0, filter by category
         subcategories = subcategories.filter(category_id=category_id)
 
-    paginator = CustomPagination()
-    paginated_subcategories = paginator.paginate_queryset(subcategories, request)
-
+    # Group subcategories by category
     category_dict = defaultdict(lambda: {"category_id": None, "category_name": None, "subcategories": []})
 
-    for sub in paginated_subcategories:
-        category_id = sub.category.category_id
-        category_name = sub.category.category_name
+    for sub in subcategories:
+        cat_id = sub.category.category_id
+        cat_name = sub.category.category_name
 
-        if category_dict[category_id]["category_id"] is None:
-            category_dict[category_id]["category_id"] = category_id
-            category_dict[category_id]["category_name"] = category_name
+        if category_dict[cat_id]["category_id"] is None:
+            category_dict[cat_id]["category_id"] = cat_id
+            category_dict[cat_id]["category_name"] = cat_name
 
-        # Get full image URL (Django automatically handles it if MEDIA_URL is set)
+        # Get full image URL
         image_url = sub.image.url if sub.image else None  
 
-        category_dict[category_id]["subcategories"].append({
+        category_dict[cat_id]["subcategories"].append({
             "subcategory_id": sub.subcategory_id,
             "subcategory_name": sub.subcategory_name,
             "status": sub.status,
@@ -3637,12 +3635,22 @@ def get_subcategories(request):
             "image": image_url  # Added image field
         })
 
-    response_data = list(category_dict.values())
+    # Apply pagination for each category's subcategories
+    paginator = CustomPagination()
+    paginated_response = []
+
+    for category in category_dict.values():
+        paginated_subcategories = paginator.paginate_queryset(category["subcategories"], request)
+        paginated_response.append({
+            "category_id": category["category_id"],
+            "category_name": category["category_name"],
+            "subcategories": paginated_subcategories
+        })
 
     return paginator.get_paginated_response({
         "status": "success",
         "message": "Subcategories fetched successfully",
-        "data": response_data
+        "data": paginated_response
     })
 
 
@@ -3793,6 +3801,14 @@ def get_services(request):
 @api_view(['POST'])
 def add_service(request):
     """Add a new service with auto-generated SKU value"""
+    
+    # Check if service_name already exists
+    if Services.objects.filter(service_name=request.data.get('service_name')).exists():
+        return Response({
+            "status": "failure",
+            "message": "A service with this name already exists."
+        }, status=status.HTTP_400_BAD_REQUEST)
+
     serializer = ServicesSerializer(data=request.data)
 
     if serializer.is_valid():
@@ -3813,6 +3829,7 @@ def add_service(request):
         "message": "Validation failed",
         "errors": serializer.errors
     }, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @api_view(['PUT'])

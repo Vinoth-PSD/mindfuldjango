@@ -281,7 +281,7 @@ class StaffSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Staff
-        fields = ['staff','name', 'role_name', 'branch_name', 'status','role_id','branch_id','phone']  # Include required fields
+        fields = ['staff','name', 'role_name', 'branch_name', 'status','role_id','branch_id','phone','photo']  # Include required fields
 
     def get_branch_name(self, obj):
         """
