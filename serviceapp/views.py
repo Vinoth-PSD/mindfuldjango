@@ -77,11 +77,12 @@ class LoginViewSet(viewsets.ModelViewSet):
                 }, status=status.HTTP_404_NOT_FOUND)
 
         # Generate 4-digit OTP
-        otp = ''.join(random.choices(string.digits, k=4))
-        
+        # otp = ''.join(random.choices(string.digits, k=4))
+        otp = "1234"  # Hardcoded OTP
+
         # Save OTP and timestamp
-        otp_target.otp = '1234'  
-        # otp_target.otp = otp
+        # otp_target.otp = '1234'  
+        otp_target.otp = otp
         otp_target.otp_created_at = timezone.now()
         otp_target.save()
 
@@ -3600,7 +3601,7 @@ def delete_category(request):
 #Subcategory CRUD Operation
 @api_view(['GET'])
 def get_subcategories(request):
-    """Fetch subcategories grouped by category with optional search, category filtering, and pagination per category"""
+    """Fetch subcategories with optional search, category filtering, and pagination. Each subcategory is a separate row."""
     
     search_query = request.query_params.get('search', '')  # Get search keyword
     category_id = request.query_params.get('category_id', None)  # Get category filter (if provided)
@@ -3613,44 +3614,31 @@ def get_subcategories(request):
     if category_id and category_id != "0":  # If category_id is provided and NOT 0, filter by category
         subcategories = subcategories.filter(category_id=category_id)
 
-    # Group subcategories by category
-    category_dict = defaultdict(lambda: {"category_id": None, "category_name": None, "subcategories": []})
+    # Prepare list of subcategories with separate rows
+    subcategory_list = []
 
     for sub in subcategories:
-        cat_id = sub.category.category_id
-        cat_name = sub.category.category_name
-
-        if category_dict[cat_id]["category_id"] is None:
-            category_dict[cat_id]["category_id"] = cat_id
-            category_dict[cat_id]["category_name"] = cat_name
-
         # Get full image URL
         image_url = sub.image.url if sub.image else None  
 
-        category_dict[cat_id]["subcategories"].append({
+        subcategory_list.append({
             "subcategory_id": sub.subcategory_id,
             "subcategory_name": sub.subcategory_name,
+            "category_id": sub.category.category_id,
+            "category_name": sub.category.category_name,
             "status": sub.status,
             "is_deleted": sub.is_deleted,
             "image": image_url  # Added image field
         })
 
-    # Apply pagination for each category's subcategories
+    # Apply pagination to the entire subcategory list
     paginator = CustomPagination()
-    paginated_response = []
-
-    for category in category_dict.values():
-        paginated_subcategories = paginator.paginate_queryset(category["subcategories"], request)
-        paginated_response.append({
-            "category_id": category["category_id"],
-            "category_name": category["category_name"],
-            "subcategories": paginated_subcategories
-        })
+    paginated_subcategories = paginator.paginate_queryset(subcategory_list, request)
 
     return paginator.get_paginated_response({
         "status": "success",
         "message": "Subcategories fetched successfully",
-        "data": paginated_response
+        "data": paginated_subcategories
     })
 
 
