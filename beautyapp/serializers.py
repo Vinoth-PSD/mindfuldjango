@@ -348,12 +348,23 @@ class BookingSerializer(serializers.ModelSerializer):
       return None
 
 class UsersSerializer(serializers.ModelSerializer):
-    dob = serializers.DateField(input_formats=["%d-%m-%Y"], format="%d-%m-%Y", required=False)
+    dob = serializers.DateField(
+        input_formats=["%d-%m-%Y"], 
+        format="%d-%m-%Y", 
+        required=False, 
+        allow_null=True
+    )
+
+    def to_internal_value(self, data):
+        if 'dob' in data and data['dob'] in [None, '']:
+            data['dob'] = None  # Convert empty string to None
+        return super().to_internal_value(data)
 
     class Meta:
         model = User
         fields = ['user_id', 'name', 'email', 'phone', 'dob', 'gender', 'location', 'address']
         extra_kwargs = {
+            'dob': {'required': False, 'allow_null': True},
             'gender': {'required': False},
             'location': {'required': False},
             'address': {'required': False},

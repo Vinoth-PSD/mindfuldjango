@@ -70,6 +70,7 @@ class ServiceProvider(models.Model):
     gender_type = models.CharField(max_length=100, blank=True, null=True)  
     timings = models.CharField(max_length=100, blank=True, null=True)
     available_credits = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    is_deleted = models.BooleanField(default=False)  # Soft delete field
 
 
     @staticmethod
@@ -335,6 +336,8 @@ class Category(models.Model):
     category_name = models.CharField(max_length=100, unique=True)
     image = models.ImageField(upload_to='categories/', null=True, blank=True)  
     status = models.CharField(max_length=20, default='Active')
+    is_deleted = models.BooleanField(default=False)  
+
 
 class Meta:
         managed=False
@@ -346,6 +349,8 @@ class Subcategory(models.Model):
     subcategory_name = models.CharField(max_length=100, unique=True)
     category = models.ForeignKey(Category, related_name='subcategories', on_delete=models.CASCADE)
     status = models.CharField(max_length=20, default='Active')
+    is_deleted = models.BooleanField(default=False)  
+
 
 class Meta:
         managed=False
@@ -447,6 +452,7 @@ class Serviceprovidertype(models.Model):
      AND loc.latitude IS NOT NULL AND loc.longitude IS NOT NULL
      AND br.service_status = 1  -- Only include providers whose branch is online
      AND sp.status = 'Active'  -- Only include active service providers
+     AND sp.is_deleted = False  -- Exclude deleted providers
      """
  
      query += f""" 
@@ -568,6 +574,8 @@ class Serviceprovidertype(models.Model):
           Locations branch_loc ON br.location_id = branch_loc.location_id
       WHERE 
           sp.provider_id = %s
+          AND sp.is_deleted = False  -- Ensure the provider is not deleted
+
       """
       params = [provider_id]
       

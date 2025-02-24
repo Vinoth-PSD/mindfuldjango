@@ -752,8 +752,11 @@ class CustomerFeedbackViewSet(viewsets.ModelViewSet):
 
     
 class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.all()
+    queryset = Category.objects.all()  # Required for DRF router
     serializer_class = CategorySerializer
+
+    def get_queryset(self):
+        return Category.objects.filter(is_deleted=False)
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -763,19 +766,25 @@ class CategoryViewSet(viewsets.ModelViewSet):
                 "status": "success",
                 "message": "Categories retrieved successfully",
                 "data": serializer.data
-            },
-            status=status.HTTP_200_OK)
+            }, status=status.HTTP_200_OK)
         else:
             return Response({
                 "status": "failure",
                 "message": "No categories found",
                 "data": []
-            },status=status.HTTP_404_NOT_FOUND)
+            }, status=status.HTTP_404_NOT_FOUND)
 
 
 class SubcategoryViewSet(viewsets.ModelViewSet):
-    queryset = Subcategory.objects.all()
+    queryset = Subcategory.objects.all()  # Required for DRF router
     serializer_class = SubcategorySerializer
+
+    def get_queryset(self):
+        queryset = Subcategory.objects.filter(is_deleted=False)
+        category_id = self.request.query_params.get('category_id')
+        if category_id:
+            queryset = queryset.filter(category_id=category_id)
+        return queryset
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -785,14 +794,13 @@ class SubcategoryViewSet(viewsets.ModelViewSet):
                 "status": "success",
                 "message": "Subcategories retrieved successfully",
                 "data": serializer.data
-            },
-            status=status.HTTP_200_OK)
+            }, status=status.HTTP_200_OK)
         else:
             return Response({
                 "status": "failure",
                 "message": "No subcategories found",
                 "data": []
-            },status=status.HTTP_404_NOT_FOUND)
+            }, status=status.HTTP_404_NOT_FOUND)
 
 
 

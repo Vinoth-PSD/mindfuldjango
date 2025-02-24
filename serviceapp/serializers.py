@@ -36,11 +36,16 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
      latitude = validated_data.pop('latitude', None)
      longitude = validated_data.pop('longitude', None)
  
-     # Try to get an existing location
-     location = Locations.objects.filter(city=location_name).first()
+     # Check if location already exists
+     location = Locations.objects.filter(city=location_name).order_by('location_id').first()
  
-     # If no location exists, create one
-     if not location:
+     if location:
+         # Update the existing location
+         location.latitude = latitude if latitude is not None else location.latitude
+         location.longitude = longitude if longitude is not None else location.longitude
+         location.save()
+     else:
+         # Create a new location if not found
          location = Locations.objects.create(
              city=location_name,
              address_line1='',
@@ -52,24 +57,27 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
              longitude=longitude if longitude is not None else 0.0,
          )
  
-     # Try to get an existing branch
-     branch = Branches.objects.filter(location=location).first()
- 
-     # If no branch exists, create one
-     if not branch:
-         branch = Branches.objects.create(
-             location=location,
-             branch_name=f'Default Branch for {location_name}'
-         )
+     # Ensure only one branch exists for the location
+     branch, branch_created = Branches.objects.get_or_create(
+         location=location,
+         defaults={'branch_name': f'Default Branch for {location_name}'}
+     )
  
      # Assign the branch and address ID
      validated_data['branch'] = branch
-     validated_data['address_id'] = location.location_id  
+     validated_data['address_id'] = location.location_id  # ✅ Correct primary key
  
      # Create the ServiceProvider instance
-     return ServiceProvider.objects.create(**validated_data)
+     service_provider = ServiceProvider.objects.create(**validated_data)
+ 
+     # Store the provider_id in the Branches table
+     branch.provider_id = service_provider.provider_id
+     branch.save()
+ 
+     return service_provider
 
-
+ 
+ 
         
 class SalonDetailsSerializer(serializers.ModelSerializer):
     saloon_location = serializers.CharField(write_only=True) 
@@ -81,7 +89,7 @@ class SalonDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProvider
         fields = [
-            'owner_name', 'established_on','email', 'phone','saloon_location','saloon_address','latitude', 'longitude','name','services_offered', 'staff_information','salon_facilities', 'cancellation_policy','working_hours'
+            'owner_name', 'established_on','email', 'phone','saloon_location','saloon_address','latitude', 'longitude','name','services_offered', 'staff_information','salon_facilities', 'cancellation_policy','working_hours', 'certifications'
         ]
 
     def validate(self, data):
@@ -787,6 +795,12 @@ class SubcategoriesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subcategory
         fields = ['subcategory_id', 'subcategory_name', 'category', 'category_name', 'status', 'is_deleted', 'image']
+
+    def validate_subcategory_name(self, value):
+        """Check if subcategory_name already exists (case-insensitive)"""
+        if Subcategory.objects.filter(subcategory_name__iexact=value, is_deleted=False).exists():
+            raise serializers.ValidationError("subcategory_name already exists")
+        return value
 
 class ServicesSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.category_name', read_only=True)

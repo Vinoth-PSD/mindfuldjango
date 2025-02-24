@@ -3600,14 +3600,18 @@ def delete_category(request):
 #Subcategory CRUD Operation
 @api_view(['GET'])
 def get_subcategories(request):
-    """Fetch all subcategories grouped by category with optional search, pagination, and descending order"""
+    """Fetch subcategories grouped by category with optional search, category filtering, pagination, and descending order"""
     
     search_query = request.query_params.get('search', '')  # Get search keyword
+    category_id = request.query_params.get('category_id', None)  # Get category filter (if provided)
 
     subcategories = Subcategory.objects.filter(is_deleted=False).select_related('category').order_by('-subcategory_id')  # Descending order
 
     if search_query:
         subcategories = subcategories.filter(subcategory_name__icontains=search_query)  # Case-insensitive search
+
+    if category_id and category_id != "0":  # If category_id is provided and NOT 0, filter by category
+        subcategories = subcategories.filter(category_id=category_id)
 
     paginator = CustomPagination()
     paginated_subcategories = paginator.paginate_queryset(subcategories, request)
@@ -3622,11 +3626,15 @@ def get_subcategories(request):
             category_dict[category_id]["category_id"] = category_id
             category_dict[category_id]["category_name"] = category_name
 
+        # Get full image URL (Django automatically handles it if MEDIA_URL is set)
+        image_url = sub.image.url if sub.image else None  
+
         category_dict[category_id]["subcategories"].append({
             "subcategory_id": sub.subcategory_id,
             "subcategory_name": sub.subcategory_name,
             "status": sub.status,
-            "is_deleted": sub.is_deleted
+            "is_deleted": sub.is_deleted,
+            "image": image_url  # Added image field
         })
 
     response_data = list(category_dict.values())
@@ -3636,6 +3644,7 @@ def get_subcategories(request):
         "message": "Subcategories fetched successfully",
         "data": response_data
     })
+
 
 
 # 2️⃣ Add a New Subcategory
@@ -3652,11 +3661,15 @@ def add_subcategory(request):
             "data": serializer.data
         }, status=status.HTTP_201_CREATED)
     
+    # Extracting the first validation error message
+    error_message = next(iter(serializer.errors.values()))[0]
+
     return Response({
         "status": "failure",
-        "message": "Validation failed",
-        "errors": serializer.errors
+        "message": error_message  
     }, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 
 # 3️⃣ Edit a Subcategory
@@ -3696,12 +3709,13 @@ def edit_subcategory(request):
                 "message": "Subcategory updated successfully",
                 "data": serializer.data
             }, status=status.HTTP_200_OK)
-        
-        return Response({
-            "status": "failure",
-            "message": "Validation failed",
-            "errors": serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Handle duplicate subcategory_name error
+        if "subcategory_name" in serializer.errors:
+            return Response({
+                "status": "failure",
+                "message": "subcategory_name already exists"
+            }, status=status.HTTP_400_BAD_REQUEST)
 
     except Subcategory.DoesNotExist:
         return Response({
