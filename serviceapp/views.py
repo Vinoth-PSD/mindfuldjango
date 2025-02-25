@@ -193,6 +193,7 @@ class LoginViewSet(viewsets.ModelViewSet):
                      'role_id': role_entry.role_id if role_entry else None,
                      'role_name': role_entry.role_name if role_entry else None,
                      'provider_id': provider_entry.provider_id if provider_entry else None,
+                     'branch_id': provider_entry.branch_id if provider_entry else None,
                      'permissions': permissions_data,
                  })
 
@@ -200,6 +201,8 @@ class LoginViewSet(viewsets.ModelViewSet):
                 # Update response for service provider
                 response_data.update({
                     'provider_id': otp_target.provider_id,
+                    'branch_id': otp_target.branch_id, 
+
 
                 })
     
