@@ -57,11 +57,17 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
              longitude=longitude if longitude is not None else 0.0,
          )
  
-     # Ensure only one branch exists for the location
-     branch, branch_created = Branches.objects.get_or_create(
-         location=location,
-         defaults={'branch_name': 'Main Branch'}
-     )
+        # Ensure only one branch exists for the location
+     branch = Branches.objects.filter(location=location).order_by('branch_id').first()
+
+     if branch:
+            # If a branch exists, update it
+            branch.branch_name = branch.branch_name or 'Main Branch'
+            branch.save()
+     else:
+            # Create a new branch if not found
+            branch = Branches.objects.create(location=location, branch_name='Main Branch')
+
  
      # Assign the branch and address ID
      validated_data['branch'] = branch
