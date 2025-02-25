@@ -651,10 +651,6 @@ class ServicesViewSet(viewsets.ModelViewSet):
     serializer_class = ServicesSerializer
     #pagination_class = None
     pagination_class = StandardResultsSetPagination
-
-    
-
-
     
     
 class StaffReviewViewSet(viewsets.ModelViewSet):
@@ -1326,26 +1322,42 @@ class ProviderActionAPIView(APIView):
             # Handle actions based on action_id
             if action == "accept":
                 appointment.status_id = 1  # 'scheduled'
-                appointment.otp = "1234"  # Generate or assign OTP here
-
+                
+                # Generate a dynamic 4-digit OTP
+                otp = "1234" 
+                # otp = str(random.randint(1000, 9999))
+                appointment.otp = otp  # Assign OTP to appointment
+                
                 # Assign stylist_id if provided
                 if stylist_id:
                     appointment.stylist_id = stylist_id
 
                 appointment.save()
+
+                # Fetch the user's phone number
+                user = User.objects.get(user_id=appointment.user_id)
+                user_phone = user.phone
+
+                # Send OTP via SMS
+                sms_service = MindfulBeautySendSMS()
+                sms_response = sms_service.send_sms(name=user.name, otp=otp, numbers=user_phone)
+
                 return Response(
                     {
                         "status": "success",
                         "message": "Appointment accepted and scheduled",
-                        "stylist_id": stylist_id or "No stylist assigned"  # Include stylist info in response
+                        "otp": otp,  # Send OTP in response (optional)
+                        "stylist_id": stylist_id or "No stylist assigned",
+                        "sms_response": sms_response  # Include SMS API response
                     },
                     status=status.HTTP_200_OK
                 )
 
             elif action == "decline":
                 appointment.status_id = 4  # 'cancelled'
-                appointment.otp = None  # No OTP sent for decline
+                appointment.otp = None  # No OTP needed for decline
                 appointment.save()
+                
                 return Response(
                     {
                         "status": "success",
@@ -1357,6 +1369,12 @@ class ProviderActionAPIView(APIView):
         except Appointment.DoesNotExist:
             return Response(
                 {"status": "error", "message": "Appointment not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        except User.DoesNotExist:
+            return Response(
+                {"status": "error", "message": "User not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
 

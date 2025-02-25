@@ -451,6 +451,7 @@ class Serviceprovidertype(models.Model):
 
      query += """ 
      AND s.status = 'Active'  -- Only include active services
+     AND s.is_deleted = False  
      AND loc.latitude IS NOT NULL AND loc.longitude IS NOT NULL
      AND br.service_status = 1  -- Only include providers whose branch is online
      AND sp.status = 'Active'  -- Only include active service providers
