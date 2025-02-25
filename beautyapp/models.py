@@ -450,8 +450,8 @@ class Serviceprovidertype(models.Model):
 
 
      query += """ 
-     AND s.status = 'Active'  -- Only include active services
-     AND s.is_deleted = False  
+     AND ps.status = 'Active'  -- Only include active services
+     AND ps.is_deleted = False  
      AND loc.latitude IS NOT NULL AND loc.longitude IS NOT NULL
      AND br.service_status = 1  -- Only include providers whose branch is online
      AND sp.status = 'Active'  -- Only include active service providers
@@ -643,8 +643,8 @@ class Serviceprovidertype(models.Model):
          Locations branch_loc ON br.location_id = branch_loc.location_id
      WHERE 
          sp.provider_id = %s
-         AND s.status = 'Active'  -- Only include active services
-         AND s.is_deleted = False -- Only include services that are not deleted
+         AND ps.status = 'Active'  -- Only include active services
+         AND ps.is_deleted = False -- Only include services that are not deleted
      """
  
      params = [prioritize_service_id, provider_id]
