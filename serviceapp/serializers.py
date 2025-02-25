@@ -60,7 +60,7 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
      # Ensure only one branch exists for the location
      branch, branch_created = Branches.objects.get_or_create(
          location=location,
-         defaults={'branch_name': f'Default Branch for {location_name}'}
+         defaults={'branch_name': 'Main Branch'}
      )
  
      # Assign the branch and address ID
@@ -77,19 +77,24 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
      return service_provider
 
  
- 
-        
+       
 class SalonDetailsSerializer(serializers.ModelSerializer):
     saloon_location = serializers.CharField(write_only=True) 
     saloon_address = serializers.CharField(write_only=True) 
     latitude = serializers.FloatField(write_only=True, required=False, allow_null=True)
     longitude = serializers.FloatField(write_only=True, required=False, allow_null=True)
+    available_slots = serializers.ListField(
+        child=serializers.CharField(allow_blank=True),
+        required=False,
+        default=[]
+    )
+    
 
     print(saloon_address , saloon_location)
     class Meta:
         model = ServiceProvider
         fields = [
-            'owner_name', 'established_on','email', 'phone','saloon_location','saloon_address','latitude', 'longitude','name','services_offered', 'staff_information','salon_facilities', 'cancellation_policy','working_hours', 'certifications'
+            'owner_name', 'established_on','email', 'phone','saloon_location','saloon_address','latitude', 'longitude','name','services_offered', 'staff_information','salon_facilities', 'cancellation_policy','working_hours', 'certifications', 'available_slots'
         ]
 
     def validate(self, data):
@@ -101,9 +106,17 @@ class SalonDetailsSerializer(serializers.ModelSerializer):
                 # If the field is not provided or is empty, check if it exists in the current instance
                 if not getattr(self.instance, field, None):
                     raise serializers.ValidationError({field: f"{field} is required."})
+                return data
+                
+    def validate_available_slots(self, value):
+        """Ensure available_slots is not empty or containing blank values"""
+        if not value or all(slot.strip() == "" for slot in value):
+            return [
+            "8:00 AM,9:00 AM,10:00 AM,11:00 AM,12:00 PM,1:00 PM,2:00 PM,3:00 PM,4:00 PM,5:00 PM,6:00 PM,7:00 PM "
+        ]
+        return [slot.strip() for slot in value if slot.strip()]  # Remove empty strings
                 
         #print(data)
-        return data
     def update(self, instance, validated_data):
         # Extract city from validated_data
         #print(1234577)
@@ -169,9 +182,14 @@ class SalonDetailsSerializer(serializers.ModelSerializer):
 class FreelancerDetailsSerializer(serializers.ModelSerializer):
     
     freelancer_location = serializers.CharField(write_only=True) 
-    home_address = serializers.CharField(write_only=True) 
+    home_address = serializers.CharField(write_only=True, required=False, allow_blank=True) 
     latitude = serializers.FloatField(write_only=True, required=False, allow_null=True)
     longitude = serializers.FloatField(write_only=True, required=False, allow_null=True)
+    available_slots = serializers.ListField(
+        child=serializers.CharField(allow_blank=True),
+        required=False,
+        default=[]
+    )
 
     class Meta:
         model = ServiceProvider
@@ -182,13 +200,23 @@ class FreelancerDetailsSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Check for required fields regardless of whether the update is partial or not
-        required_fields = ['home_address', 'email', 'phone', 'owner_name','freelancer_location']
+        required_fields = ['email', 'phone', 'owner_name','freelancer_location']
         for field in required_fields:
             if field not in data or not data[field]:
                 # If the field is not provided or is empty, check if it exists in the current instance
                 if not getattr(self.instance, field, None):
                     raise serializers.ValidationError({field: f"{field} is required."})
-        return data
+            return data
+
+                
+    def validate_available_slots(self, value):
+        """Ensure available_slots is not empty or containing blank values"""
+        if not value or all(slot.strip() == "" for slot in value):
+            return [
+            "8:00 AM,9:00 AM,10:00 AM,11:00 AM,12:00 PM,1:00 PM,2:00 PM,3:00 PM,4:00 PM,5:00 PM,6:00 PM,7:00 PM "
+        ]
+        return [slot.strip() for slot in value if slot.strip()]  # Remove empty strings
+
     def update(self, instance, validated_data):
         # Extract city from validated_data
         #print(1234577)

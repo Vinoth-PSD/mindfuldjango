@@ -1267,6 +1267,11 @@ class ProviderServicesView(APIView):
             # Check if price and duration are available in Serviceprovidertype
             price = service_provider.price if service_provider.price else service.price
             duration = service_provider.duration if service_provider.duration else service.service_time
+         
+            # Safe handling of branch and city (to prevent RelatedObjectDoesNotExist)
+            branch = getattr(service_provider, 'branch', None)
+            location = getattr(branch, 'location', None)
+            city = getattr(location, 'city', None)
 
             service_data.append({
                 'provider_service_id': service_provider.provider_service_id,  
@@ -1280,7 +1285,9 @@ class ProviderServicesView(APIView):
                 'duration': duration,  # Duration from Serviceprovidertype or Services
                 'status': service_provider.status,
                 'sku_value': service.sku_value,
-                'branch_id': service_provider.branch_id  
+                'branch_id': service_provider.branch_id,
+                'city': city  
+  
             })
         return service_data
 
