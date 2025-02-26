@@ -318,7 +318,7 @@ class Serviceprovidertype(models.Model):
 class Permissions(models.Model):
     permission_id = models.AutoField(primary_key=True)  
     role = models.ForeignKey('Role', on_delete=models.CASCADE) 
-    provider = models.ForeignKey('ServiceProvider', on_delete=models.CASCADE, null=True, blank=True)  
+    # provider = models.ForeignKey('ServiceProvider', on_delete=models.CASCADE, null=True, blank=True)  
     dashboard = models.BooleanField(default=False)  
     manage_role = models.BooleanField(default=False) 
     service_listing = models.BooleanField(default=False)  
