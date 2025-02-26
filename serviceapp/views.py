@@ -1471,8 +1471,8 @@ class PermissionsAPIView(APIView):
                     request.data[field] = "true" if value.lower() == "true" else "false"
 
         # Check if an existing permission exists for the given provider and role
-        # permission = Permissions.objects.filter(provider_id=provider_id, role_id=role_id).first()
-        permission = Permissions.objects.filter(role_id=role_id).first()
+        permission = Permissions.objects.filter(provider_id=provider_id, role_id=role_id).first()
+        # permission = Permissions.objects.filter(role_id=role_id).first()
 
         if permission:
             # Update existing permission
