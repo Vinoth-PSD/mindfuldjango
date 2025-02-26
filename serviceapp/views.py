@@ -2109,44 +2109,33 @@ def generate_invoice_pdf(request):
         appointment = get_object_or_404(Appointment, appointment_id=appointment_id)
         user = get_object_or_404(User, user_id=appointment.user.user_id)
         payment = get_object_or_404(Payment, appointment=appointment)
-        
+        provider = get_object_or_404(ServiceProvider, provider_id=appointment.provider.provider_id)
+
+        # Get provider logo URL
+        provider_logo = provider.image_url.url if provider.image_url else None
+
         # Get service details
         service_ids = map(int, appointment.service_id_new.split(','))
         services = Services.objects.filter(service_id__in=service_ids)
         
         # Prepare service data for the template
-        service_details = []
-        for service in services:
-            service_details.append({
-                'name': service.service_name,
-                'price': service.price,
-            })
-        
-        # Prepare invoice data for rendering
+        service_details = [{'name': service.service_name, 'price': service.price} for service in services]
+
+        # Prepare invoice data
         invoice_data = {
-            'user': {
-                'name': user.name,
-                'phone': user.phone,
-                'address': user.address,
-            },
-            'appointment': {
-                'date': appointment.appointment_date,
-                'time': appointment.appointment_time,
-            },
+            'user': {'name': user.name, 'phone': user.phone, 'address': user.address},
+            'appointment': {'date': appointment.appointment_date, 'time': appointment.appointment_time},
             'payment': {
-                'amount': payment.amount,
-                'cgst': payment.cgst,
-                'sgst': payment.sgst,
-                'grand_total': payment.grand_total,
-                'coupon_code': payment.coupon_code,
-                'coupon_amount': payment.coupon_amount,
-                'payment_mode': payment.payment_mode,
+                'amount': payment.amount, 'cgst': payment.cgst, 'sgst': payment.sgst,
+                'grand_total': payment.grand_total, 'coupon_code': payment.coupon_code,
+                'coupon_amount': payment.coupon_amount, 'payment_mode': payment.payment_mode,
                 'payment_status': payment.payment_status,
             },
+            'provider': {'logo': provider_logo},  # Add logo to invoice data
             'services': service_details,
         }
-        
-        # Define HTML content
+
+        # Define HTML template
         html_content = """
         <!DOCTYPE html>
         <html lang="en">
@@ -2161,9 +2150,17 @@ def generate_invoice_pdf(request):
                 .details td, .services th, .services td { border: 1px solid #ddd; padding: 8px; }
                 .services th { text-align: left; background-color: #f2f2f2; }
                 .totals { text-align: right; margin-top: 20px; }
+                .logo { text-align: left; margin-bottom: 20px; }
+                .logo img { width: 150px; }
             </style>
         </head>
         <body>
+            <div class="logo">
+                {% if invoice.provider.logo %}
+                    <img src="{{ invoice.provider.logo }}" alt="Provider Logo">
+                {% endif %}
+            </div>
+            
             <div class="header">Invoice</div>
 
             <div class="section">
@@ -2206,17 +2203,17 @@ def generate_invoice_pdf(request):
         </html>
         """
 
-        # Render the template using Django's Template system
+        # Render template
         template = Template(html_content)
         context = Context({'invoice': invoice_data})
         html = template.render(context)
 
-        # Generate the PDF
+        # Generate PDF
         response = HttpResponse(content_type='application/pdf')
         response['Content-Disposition'] = 'attachment; filename="invoice.pdf"'
         result = io.BytesIO()
         pdf = pisa.pisaDocument(io.BytesIO(html.encode("UTF-8")), result)
-        
+
         if not pdf.err:
             response.write(result.getvalue())
             return response
@@ -4763,3 +4760,62 @@ class AddProviderCreditsView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
+
+#Coupon Count 
+class CouponStatsAPIView(APIView):
+    def get(self, request):
+        # Get total coupons created (excluding deleted ones)
+        total_coupons_created = Coupon.objects.filter(is_deleted=False).count()
+        
+        # Get active coupons count (excluding expired ones)
+        active_coupons_count = Coupon.objects.filter(
+            status=1, is_deleted=False
+        ).exclude(valid_until__lt=now()).count()
+        
+        # Get total coupon value (excluding expired coupons)
+        total_coupon_value = Coupon.objects.filter(
+            status=1, is_deleted=False
+        ).exclude(valid_until__lt=now()).aggregate(
+            total_value=Sum(F('coupon_limit') * F('discount_value'))
+        )['total_value'] or 0
+        
+        # Get the number of coupons used in payments
+        used_coupon_value = Payment.objects.aggregate(used_value=Sum('coupon_amount'))['used_value'] or 0
+        
+        # Calculate remaining coupon value
+        remaining_coupon_value = total_coupon_value - used_coupon_value
+        
+        data = {
+            "coupons_created": total_coupons_created,
+            "active_coupons": active_coupons_count,
+            "total_coupon_value": total_coupon_value,
+            "remaining_coupon_value": remaining_coupon_value
+        }
+        return Response({"status": "success", "message": "Coupon count fetched successfully", "data": data})
+    
+#Wallet Count
+class WalletManagementView(APIView):
+    def get(self, request):
+        try:
+            # Get total credits purchased (successful transactions)
+            total_credits_purchased = ProviderTransactions.objects.filter(status="Success").aggregate(
+                total_credits=Sum('total_amount')
+            )['total_credits'] or 0  # Default to 0 if None
+
+            # Get remaining credits (only for active, non-deleted salons)
+            remaining_credits = ServiceProvider.objects.filter(status="Active", is_deleted=False).aggregate(
+                total_remaining=Sum('available_credits')
+            )['total_remaining'] or 0  # Default to 0 if None
+
+            return Response({
+                "status": "success",
+                "message": "Wallet details fetched successfully",
+                "total_credits_purchased": total_credits_purchased,
+                "remaining_credits": remaining_credits
+            })
+        
+        except Exception as e:
+            return Response({
+                "status": "error",
+                "message": f"An error occurred: {str(e)}"
+            }, status=500)
