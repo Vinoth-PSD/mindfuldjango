@@ -42,8 +42,6 @@ import traceback
 
 
 
-
-
 class LoginViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         phone = request.data.get('phone')  # Get phone number from request
@@ -4265,7 +4263,7 @@ class CouponUpdateAPIView(generics.UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         """Handles updating a coupon by ID from query parameters"""
-        coupon_id = request.query_params.get('id')  # Get ID from query params
+        coupon_id = request.data.get('id')  # Get ID from request body
         if not coupon_id:
             return Response({"status": "error", "message": "Coupon ID is required"}, status=status.HTTP_400_BAD_REQUEST)
         
