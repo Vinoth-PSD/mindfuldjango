@@ -94,33 +94,35 @@ class SalonDetailsSerializer(serializers.ModelSerializer):
         required=False,
         default=[]
     )
+    image_url = serializers.ImageField(required=True)  
+
     
 
     print(saloon_address , saloon_location)
     class Meta:
         model = ServiceProvider
         fields = [
-            'owner_name', 'established_on','email', 'phone','saloon_location','saloon_address','latitude', 'longitude','name','services_offered', 'staff_information','salon_facilities', 'cancellation_policy','working_hours', 'certifications', 'available_slots'
+            'owner_name', 'established_on','email', 'phone','saloon_location','saloon_address','latitude', 'longitude','name','services_offered', 'staff_information','salon_facilities', 'cancellation_policy','working_hours', 'certifications', 'available_slots', 'image_url'
         ]
 
     def validate(self, data):
         print(8541259874)
         # Check for required fields regardless of whether the update is partial or not
-        required_fields = ['owner_name', 'email', 'phone','name']
+        required_fields = ['owner_name', 'email', 'phone','name','image_url']
         for field in required_fields:
             if field not in data or not data[field]:
                 # If the field is not provided or is empty, check if it exists in the current instance
                 if not getattr(self.instance, field, None):
                     raise serializers.ValidationError({field: f"{field} is required."})
                 return data
-                
-    def validate_available_slots(self, value):
-        """Ensure available_slots is not empty or containing blank values"""
-        if not value or all(slot.strip() == "" for slot in value):
-            return [
-            "8:00 AM,9:00 AM,10:00 AM,11:00 AM,12:00 PM,1:00 PM,2:00 PM,3:00 PM,4:00 PM,5:00 PM,6:00 PM,7:00 PM "
+
+    def create(self, validated_data):
+        """Ensure 'available_slots' is always set with default values if not provided."""
+        validated_data['available_slots'] = [
+            "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", 
+            "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM"
         ]
-        return [slot.strip() for slot in value if slot.strip()]  # Remove empty strings
+        return super().create(validated_data)
                 
         #print(data)
     def update(self, instance, validated_data):
@@ -196,17 +198,19 @@ class FreelancerDetailsSerializer(serializers.ModelSerializer):
         required=False,
         default=[]
     )
+    image_url = serializers.ImageField(required=True)  
+
 
     class Meta:
         model = ServiceProvider
         fields = [
             'owner_name','years_of_experience','email', 'phone','freelancer_location','latitude', 'longitude','home_address','languages_spoken', 'travel_capability_kms', 'services_offered',
-            'certifications', 'willing_to_work_holidays','available_slots'
+            'certifications', 'willing_to_work_holidays','available_slots', 'image_url'
         ]
 
     def validate(self, data):
         # Check for required fields regardless of whether the update is partial or not
-        required_fields = ['email', 'phone', 'owner_name','freelancer_location']
+        required_fields = ['email', 'phone', 'owner_name','freelancer_location', 'image_url']
         for field in required_fields:
             if field not in data or not data[field]:
                 # If the field is not provided or is empty, check if it exists in the current instance

@@ -377,22 +377,16 @@ class Serviceprovidertype(models.Model):
      ROUND(
      CAST(
          6371 * acos(
-             cos(radians(%s)) * cos(radians(branch_loc.latitude)) 
-             * cos(radians(branch_loc.longitude) - radians(%s)) 
-             + sin(radians(%s)) * sin(radians(branch_loc.latitude))
+             cos(radians(%s)) * cos(radians(loc.latitude)) 
+             * cos(radians(loc.longitude) - radians(%s)) 
+             + sin(radians(%s)) * sin(radians(loc.latitude))
          ) AS numeric
      ), 1
      )
      """
  
      query = f"""
-SELECT 
-     br.branch_id,
-     br.branch_name,
-     branch_loc.latitude AS branch_latitude,
-     branch_loc.longitude AS branch_longitude,
-     branch_loc.city AS branch_city,
-     branch_loc.state AS branch_state,
+     SELECT DISTINCT
      sp.provider_id,
      sp.name AS provider_name,
      sp.rating,
@@ -400,29 +394,42 @@ SELECT
      sp.business_summary,
      sp.gender_type,
      sp.timings,
+     loc.latitude AS provider_latitude,
+     loc.longitude AS provider_longitude,
+     loc.city AS provider_city,
+     loc.state AS provider_state,
      s.service_name,
      s.service_id,
      ps.price,
-     st.service_type_id,
+     br.branch_id,
+     br.branch_name,
+     branch_loc.latitude AS branch_latitude,
+     branch_loc.longitude AS branch_longitude,
+     branch_loc.city AS branch_city,
+     branch_loc.state AS branch_state,
+     st.service_type_id,  -- Select service_type_id
      {haversine_formula} AS distance_km,  -- Calculate distance in kilometers between provider and branch
      TRUE AS verified , 
-     CONCAT(COUNT(CASE WHEN rv.status = 1 THEN rv.review_id END), ' reviews') AS review_count,
-     ROUND(CAST(AVG(CASE WHEN rv.status = 1 THEN rv.rating END) AS numeric), 1) AS average_rating,
-     '1234' AS otp, 
+     CONCAT(COUNT(CASE WHEN rv.status = 1 THEN rv.review_id END), ' reviews') AS review_count,  -- Count only active reviews (status=1) and append 'reviews'
+     ROUND(CAST(AVG(CASE WHEN rv.status = 1 THEN rv.rating END) AS numeric), 1) AS average_rating,  -- Calculate average rating for active reviews
+     '1234' AS otp, -- Set default OTP  
      s.service_name AS all_services
- FROM 
-     Branches br
- JOIN ServiceProviders sp ON br.provider_id = sp.provider_id  
- JOIN 
-     beautyapp_serviceprovidertype ps ON sp.provider_id = ps.provider_id_id
- JOIN 
-     beautyapp_Services s ON ps.service_id_id = s.service_id
- LEFT JOIN 
-     Locations branch_loc ON br.location_id = branch_loc.location_id
- LEFT JOIN 
-     beautyapp_servicetypes st ON sp.service_type_id = st.service_type_id
- LEFT JOIN 
-     beautyapp_review rv ON sp.provider_id = rv.provider_id
+     FROM 
+         ServiceProviders sp
+     JOIN 
+         beautyapp_serviceprovidertype ps ON sp.provider_id = ps.provider_id_id
+     JOIN 
+         beautyapp_Services s ON ps.service_id_id = s.service_id
+     JOIN 
+         Locations loc ON sp.address_id = loc.location_id  -- Provider's main location
+     LEFT JOIN 
+         Branches br ON sp.branch_id = br.branch_id
+     LEFT JOIN 
+         Locations branch_loc ON br.location_id = branch_loc.location_id  -- Branch location
+     LEFT JOIN 
+         beautyapp_servicetypes st ON sp.service_type_id = st.service_type_id  -- Join ServiceTypes
+     LEFT JOIN 
+         beautyapp_review rv ON sp.provider_id = rv.provider_id
      """
      
      # Add WHERE clause with mandatory filters
@@ -445,7 +452,7 @@ SELECT
      query += """ 
      AND ps.status = 'Active'  -- Only include active services
      AND ps.is_deleted = False  
-     AND branch_loc.latitude IS NOT NULL AND branch_loc.longitude IS NOT NULL
+     AND loc.latitude IS NOT NULL AND loc.longitude IS NOT NULL
      AND br.service_status = 1  -- Only include providers whose branch is online
      AND sp.status = 'Active'  -- Only include active service providers
      AND sp.is_deleted = False  -- Exclude deleted providers
@@ -453,11 +460,10 @@ SELECT
  
      query += f""" 
      GROUP BY 
-     br.branch_id, br.branch_name, 
-     branch_loc.latitude, branch_loc.longitude, branch_loc.city, branch_loc.state, 
-     sp.provider_id, sp.name, sp.rating, sp.image_url, sp.business_summary,
-     sp.gender_type, sp.timings, s.service_name, s.service_id, ps.price,
-     st.service_type_id
+         sp.provider_id, sp.name, sp.rating, loc.latitude, loc.longitude, loc.city, loc.state, 
+         s.service_name, s.service_id, ps.price, br.branch_id, br.branch_name, 
+         branch_loc.latitude, branch_loc.longitude, branch_loc.city, branch_loc.state,
+         st.service_type_id
      HAVING 
          {haversine_formula} <= %s  -- Apply radius filter in kilometers
      ORDER BY 
@@ -522,29 +528,29 @@ SELECT
          data.append(row_dict)
 
         # Deduplication function
-    #  def get_distinct_results(query_result):
-    #         unique_provider_ids = set()
-    #         distinct_data = []
+     def get_distinct_results(query_result):
+            unique_provider_ids = set()
+            distinct_data = []
 
-    #         for row_dict in query_result:
-    #             provider_id = row_dict.get("provider_id")
-    #             if provider_id not in unique_provider_ids:
-    #                 unique_provider_ids.add(provider_id)
-    #                 distinct_data.append(row_dict)
+            for row_dict in query_result:
+                provider_id = row_dict.get("provider_id")
+                if provider_id not in unique_provider_ids:
+                    unique_provider_ids.add(provider_id)
+                    distinct_data.append(row_dict)
             
-    #         return distinct_data
+            return distinct_data
 
-    #     # Call the deduplication function with 'data'
-    #  distinct_data = get_distinct_results(data)
+        # Call the deduplication function with 'data'
+     distinct_data = get_distinct_results(data)
 
         # Return the distinct result
-     return data
+     return distinct_data
          
     #return data
 
     
      # Method to get provider details
-    def get_provider_details(self, provider_id , branch_id):
+    def get_provider_details(self, provider_id):
       query = """
       SELECT 
           sp.provider_id,
@@ -566,15 +572,15 @@ SELECT
       JOIN 
           Locations loc ON sp.address_id = loc.location_id
       LEFT JOIN 
-          Branches br ON sp.provider_id = br.provider_id
+          Branches br ON sp.branch_id = br.branch_id
       LEFT JOIN 
           Locations branch_loc ON br.location_id = branch_loc.location_id
       WHERE 
-          sp.provider_id = %s AND br.branch_id = %s
+          sp.provider_id = %s
           AND sp.is_deleted = False  -- Ensure the provider is not deleted
 
       """
-      params = [provider_id,branch_id]
+      params = [provider_id]
       
       with connection.cursor() as cursor:
           cursor.execute(query, params)
@@ -610,7 +616,7 @@ SELECT
 
 
     # Method to get services for the provider
-    def get_provider_services(self, provider_id, branch_id ,prioritize_service_id=None, category_id=None, subcategory_id=None):
+    def get_provider_services(self, provider_id, prioritize_service_id=None, category_id=None, subcategory_id=None):
      query = """
      SELECT DISTINCT
          s.service_name,
@@ -624,24 +630,24 @@ SELECT
              ELSE 1
          END AS priority
      FROM 
-         Branches br
-    LEFT JOIN 
-         ServiceProviders sp ON sp.provider_id = br.provider_id
+         ServiceProviders sp
      JOIN 
-         beautyapp_serviceprovidertype ps ON br.branch_id = ps.branch_id
+         beautyapp_serviceprovidertype ps ON sp.provider_id = ps.provider_id_id
      JOIN 
          beautyapp_Services s ON ps.service_id_id = s.service_id
      JOIN 
          Locations loc ON sp.address_id = loc.location_id
      LEFT JOIN 
+         Branches br ON sp.branch_id = br.branch_id
+     LEFT JOIN 
          Locations branch_loc ON br.location_id = branch_loc.location_id
      WHERE 
-         br.branch_id =%s
+         sp.provider_id = %s
          AND ps.status = 'Active'  -- Only include active services
          AND ps.is_deleted = False -- Only include services that are not deleted
      """
  
-     params = [prioritize_service_id, branch_id]
+     params = [prioritize_service_id, provider_id]
  
      if category_id:
          query += " AND s.category_id = %s"
@@ -684,39 +690,24 @@ SELECT
 
     
         
-    def get_beauticians_for_provider(self, provider_id , branch_id):
+    def get_beauticians_for_provider(self, provider_id):
       role_id = 5  # Define the role_id directly
-    #   query = """
-    #   SELECT 
-    #       s.staff AS beautician_id,
-    #       s.name AS beautician_name,
-    #       s.role_id,
-    #       s.years_of_experience,
-    #       sp.rating,
-    #       sp.image_url AS profile_image
-    #   FROM 
-    #       beautyapp_staff s
-    #   JOIN 
-    #       serviceproviders sp ON s.provider_id = sp.provider_id
-    #   WHERE 
-    #       s.provider_id = %s AND s.role_id = %s
-    #   """
       query = """
-        SELECT 
-            s.staff AS beautician_id,
-            s.name AS beautician_name,
-            s.role_id,
-            s.years_of_experience,
-            sp.rating,
-            sp.image_url AS profile_image
-        FROM 
-            beautyapp_staff s
-        JOIN 
-            branches br ON br.branch_id = br.branch_id
-        WHERE 
-            br.branch_id = %s AND s.role_id = %s
-        """
-      params = [branch_id, role_id]
+      SELECT 
+          s.staff AS beautician_id,
+          s.name AS beautician_name,
+          s.role_id,
+          s.years_of_experience,
+          sp.rating,
+          sp.image_url AS profile_image
+      FROM 
+          beautyapp_staff s
+      JOIN 
+          serviceproviders sp ON s.provider_id = sp.provider_id
+      WHERE 
+          s.provider_id = %s AND s.role_id = %s
+      """
+      params = [provider_id, role_id]
       with connection.cursor() as cursor:
           cursor.execute(query, params)
           results = cursor.fetchall()
@@ -835,7 +826,7 @@ SELECT
 
 
     
-    def get_provider_packages(self, provider_id, branch_id ,service_type=1):
+    def get_provider_packages(self, provider_id, service_type=1):
      # Base query part
      base_query = """
      SELECT 
