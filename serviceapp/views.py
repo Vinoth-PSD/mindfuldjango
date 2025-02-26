@@ -2641,6 +2641,8 @@ class ServiceProviderListView(APIView):
     def get(self, request):
         provider_status = request.query_params.get('status', None)  # Get status from query params
         search_query = request.query_params.get('search', None)  # Get search term from query params
+        service_type_id = request.query_params.get('service_type_id', None)  # Get service_type_id from query params
+
 
         if not provider_status:
             return Response({
@@ -2653,6 +2655,10 @@ class ServiceProviderListView(APIView):
             status=provider_status, 
             is_deleted=False  # Only fetch non-deleted providers
         ).order_by('-provider_id')  # Changed to descending order
+
+        if service_type_id and service_type_id != "0":
+           providers = providers.filter(service_type_id=service_type_id)
+
 
         # Apply search filter if search query exists
         if search_query:
@@ -2673,6 +2679,8 @@ class ServiceProviderListView(APIView):
         for provider in paginated_providers:
             branch = getattr(provider, 'branch', None)  # Safely get the branch
             location = getattr(branch, 'location', None) if branch else None
+            service_type = getattr(provider, 'service_type', None)  
+
             response_data.append({
                 'salon_id': provider.provider_id,
                 'salon_name': provider.name,
@@ -2680,6 +2688,9 @@ class ServiceProviderListView(APIView):
                 'mobile': provider.phone,
                 'owner_name': provider.owner_name,
                 'location': getattr(location, 'city', None) if location else None,
+                'service_type_id': getattr(service_type, 'service_type_id', None) if service_type else None,  
+                'service_type_name': getattr(service_type, 'type_name', None) if service_type else None,  
+
             })
 
         return paginator.get_paginated_response({
@@ -2889,7 +2900,7 @@ class UpdateProviderDetails(APIView):
                         new_bank = ProviderBankDetails(**bank_data, provider=provider)
                         new_bank.save()
 
-            # Update tax details
+           # Update tax details
             tax_details_data = request_data.get('tax_details', [])
             if tax_details_data:
                 for tax_data in tax_details_data:
@@ -2898,7 +2909,10 @@ class UpdateProviderDetails(APIView):
                         tax = ProviderTaxRegistration.objects.filter(id=tax_id).first()
                         if tax:
                             for key, value in tax_data.items():
-                                setattr(tax, key, value)
+                                if key in request.FILES:  # Ensure files are updated properly
+                                    setattr(tax, key, request.FILES[key])
+                                elif value:
+                                    setattr(tax, key, value)
                             tax.save()
                         else:
                             new_tax = ProviderTaxRegistration(**tax_data, provider=provider)
@@ -2906,6 +2920,7 @@ class UpdateProviderDetails(APIView):
                     else:
                         new_tax = ProviderTaxRegistration(**tax_data, provider=provider)
                         new_tax.save()
+
 
             return Response({
                 "status": "success",
@@ -4367,7 +4382,10 @@ def generate_sales_transaction_pdf(request):
             <title>Transaction Invoice</title>
             <style>
                 body { font-family: Arial, sans-serif; margin: 30px; color: #333; }
-                .header { text-align: center; font-size: 22px; font-weight: bold; margin-bottom: 15px; }
+                .header { text-align: center; margin-bottom: 15px; }
+                .header-logo { text-align: left; }
+                .header img { width: 120px; height: auto; margin-bottom: 10px; }
+                .header-title { font-size: 22px; font-weight: bold; }
                 .section { margin-bottom: 15px; font-size: 14px; }
                 .details-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
                 .details-table th, .details-table td { border: 1px solid #ddd; padding: 10px; text-align: center; font-size: 14px; }
@@ -4386,14 +4404,20 @@ def generate_sales_transaction_pdf(request):
             </style>
         </head>
         <body>
-            <div class="header">Transaction Invoice</div>
+            <div class="header">
+                <div class="header-logo">  
+                    <img src="http://127.0.0.1:8000/media/mindfulBeautyLogoSmall-CXWufzBM.png" alt="Company Logo">
+                </div>
 
+                <div class="header-title">Transaction Invoice</div>
+            </div>
+        
             <div class="section">
                 <strong>Provider Details:</strong><br>
                 {{ invoice.provider.name }} | {{ invoice.provider.phone }}<br>
                 Owner: {{ invoice.provider.owner_name }}
             </div>
-
+        
             <div class="section">
                 <strong>Transaction Details:</strong><br>
                 <strong>Transaction ID:</strong> {{ invoice.transaction.transaction_id }}<br>
@@ -4402,7 +4426,7 @@ def generate_sales_transaction_pdf(request):
                 <strong>Payment Mode:</strong> {{ invoice.transaction.payment_type }}<br>
                 <strong>Payment Status:</strong> <span class="payment-status">{{ invoice.transaction.status }}</span>
             </div>
-
+        
             <div class="invoice-box">
                 <table class="details-table">
                     <tr>
@@ -4418,17 +4442,17 @@ def generate_sales_transaction_pdf(request):
                         <td>{{ invoice.transaction.sgst }}</td>
                         <td>{{ invoice.transaction.cgst }}</td>
                         <td>{{ invoice.transaction.amount }}</td>
-
                     </tr>
                 </table>
             </div>
-
+        
             <div class="totals">
                 <p>Total: Rs. {{ invoice.transaction.total_amount }}</p>
             </div>
         </body>
         </html>
         """
+
         
         # Render the template
         template = Template(html_content)

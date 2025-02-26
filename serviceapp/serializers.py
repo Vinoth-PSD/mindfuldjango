@@ -856,12 +856,14 @@ class CouponSerializer(serializers.ModelSerializer):
     valid_until = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     discount_value = serializers.SerializerMethodField()
+    status_id = serializers.IntegerField(source="status")  # Directly include status ID
+
 
     class Meta:
         model = Coupon
         fields = [
             "id", "coupon_code", "coupon_limit", "valid_from", "valid_until",
-            "discount_type", "discount_value", "status", "created_datetime", "provider"
+            "discount_type", "discount_value", "status", "created_datetime", "provider", "status_id"
         ]
 
     def get_valid_from(self, obj):
