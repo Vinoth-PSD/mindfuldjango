@@ -805,16 +805,17 @@ class BookServiceViewSet(viewsets.ModelViewSet):
     serializer_class = ServiceprovidertypeSerializer
 
     def list(self, request, *args, **kwargs):
+        branch_id = request.query_params.get('branch_id')
         provider_id = request.query_params.get('provider_id')
         service_id = request.query_params.get('service_id')
         category_id = request.query_params.get('category_id')
         subcategory_id = request.query_params.get('subcategory_id')
 
-        if not provider_id:
+        if not provider_id and branch_id:
             return Response(
                 {
                     "status": "failure",
-                    "message": "Missing required query parameters: provider_id",
+                    "message": "Missing required query parameters: provider_id or branch_id missing ",
                     "data": []
                 },
                 status=status.HTTP_404_NOT_FOUND
@@ -825,18 +826,18 @@ class BookServiceViewSet(viewsets.ModelViewSet):
             service_provider_type = Serviceprovidertype()
 
             # Fetching the details based on provider_id
-            provider_details = service_provider_type.get_provider_details(provider_id)
-            provider_services = service_provider_type.get_provider_services(provider_id, service_id, category_id, subcategory_id)
-            beauticians = service_provider_type.get_beauticians_for_provider(provider_id)
+            provider_details = service_provider_type.get_provider_details(provider_id , branch_id)
+            provider_services = service_provider_type.get_provider_services(provider_id, branch_id ,service_id, category_id, subcategory_id)
+            beauticians = service_provider_type.get_beauticians_for_provider(provider_id,branch_id)
             provider_photos = service_provider_type.get_provider_photos(provider_id, 0)
             provider_banner = service_provider_type.get_provider_photos(provider_id, 1)
             faq = service_provider_type.get_faqs_for_provider(provider_id)
             overview = service_provider_type.get_overview_for_provider(provider_id)
             review = service_provider_type.get_reviews_by_provider(provider_id)
-            packages = service_provider_type.get_provider_packages(provider_id)
+            packages = service_provider_type.get_provider_packages(provider_id ,branch_id)
 
             # Fetching frequently used services
-            frequently_used_services = service_provider_type.get_frequently_used_services(provider_id)    
+            frequently_used_services = service_provider_type.get_frequently_used_services(provider_id , branch_id)    
 
             return Response(
                 {
@@ -1820,7 +1821,7 @@ class RecommendedProvidersView(APIView):
                 }
                 for rating in ratings
             }
-
+            
             # Serialize provider data
             serializer = ServiceProviderSerializer(providers_query, many=True)
 
