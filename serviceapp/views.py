@@ -379,7 +379,7 @@ class ProviderTaxInfo(APIView):
          return Response({"message": "Tax registration details saved successfully", "data": serializer.data}, status=status.HTTP_201_CREATED)
      
      return Response({"error": serializer.errors}, status=status.HTTP_200_OK)
-
+    
     def add_default_permissions(self, provider_id):
         try:
             # Fetch the provider
