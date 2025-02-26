@@ -158,8 +158,8 @@ class LoginViewSet(viewsets.ModelViewSet):
     
                 # Fetch permissions for the staff
                 try:
-                    # permissions = Permissions.objects.get(role=role_entry, provider=provider_entry)
-                    permissions = Permissions.objects.get(role=role_entry)
+                    permissions = Permissions.objects.get(role=role_entry, provider=provider_entry)
+                    # permissions = Permissions.objects.get(role=role_entry)
                     permissions_data = {
                         'dashboard': permissions.dashboard,
                         'manage_role': permissions.manage_role,
@@ -1471,8 +1471,8 @@ class PermissionsAPIView(APIView):
                     request.data[field] = "true" if value.lower() == "true" else "false"
 
         # Check if an existing permission exists for the given provider and role
-        permission = Permissions.objects.filter(provider_id=provider_id, role_id=role_id).first()
-        # permission = Permissions.objects.filter(role_id=role_id).first()
+        # permission = Permissions.objects.filter(provider_id=provider_id, role_id=role_id).first()
+        permission = Permissions.objects.filter(role_id=role_id).first()
 
         if permission:
             # Update existing permission
