@@ -158,7 +158,9 @@ class LoginViewSet(viewsets.ModelViewSet):
     
                 # Fetch permissions for the staff
                 try:
-                    permissions = Permissions.objects.get(role=role_entry, provider=provider_entry)
+                    # permissions = Permissions.objects.get(role=role_entry, provider=provider_entry)
+                    permissions = Permissions.objects.get(role=role_entry)
+
                     permissions_data = {
                         'dashboard': permissions.dashboard,
                         'manage_role': permissions.manage_role,
@@ -237,7 +239,8 @@ class LoginViewSet(viewsets.ModelViewSet):
     
             # Fetch permissions for the role of the staff
             try:
-                permissions = Permissions.objects.get(role=role_entry, provider=provider_entry)
+                # permissions = Permissions.objects.get(role=role_entry, provider=provider_entry)
+                permissions = Permissions.objects.get(role=role_entry)
             except Permissions.DoesNotExist:
                 # If permissions do not exist, we can either create them or return a failure
                 return Response({'status': 'failure', 'message': 'Permissions not found for this role and provider'},
@@ -374,46 +377,46 @@ class ProviderTaxInfo(APIView):
          serializer.save()
  
          # Add default permissions after saving tax info
-         self.add_default_permissions(provider_id)
+         #self.add_default_permissions(provider_id)
  
          return Response({"message": "Tax registration details saved successfully", "data": serializer.data}, status=status.HTTP_201_CREATED)
      
      return Response({"error": serializer.errors}, status=status.HTTP_200_OK)
     
-    def add_default_permissions(self, provider_id):
-        try:
-            # Fetch the provider
-            provider = ServiceProvider.objects.get(provider_id=provider_id)
+    # def add_default_permissions(self, provider_id):
+    #     try:
+    #         # Fetch the provider
+    #         provider = ServiceProvider.objects.get(provider_id=provider_id)
 
-            # Default role ID; ensure you have a valid role ID
-            role_id = 1  # Replace with actual role ID, you can also fetch it dynamically based on your logic
+    #         # Default role ID; ensure you have a valid role ID
+    #         role_id = 1  # Replace with actual role ID, you can also fetch it dynamically based on your logic
             
-            # Check if permissions already exist for this provider
-            if not Permissions.objects.filter(provider_id=provider_id).exists():
-                permissions = Permissions(
-                    role_id=role_id,  # Assign the correct role_id
-                    provider_id=provider_id,
-                    dashboard=True,
-                    manage_role=True,
-                    service_listing=True,
-                    service_management=True,
-                    sales_transactions=True,
-                    ratings_reviews=True,
-                    report_details=True,
-                    roles_management=True,
-                    staff_management=True,
-                    branch_management=True,
-                    all_booking=True,
-                    schedule=True,
-                    inprogress=True,
-                    completed=True,
-                    cancelled=True,
-                )
-                permissions.save()
-                print(f"Permissions added for provider {provider_id}")
+    #         # Check if permissions already exist for this provider
+    #         if not Permissions.objects.filter(provider_id=provider_id).exists():
+    #             permissions = Permissions(
+    #                 role_id=role_id,  # Assign the correct role_id
+    #                 provider_id=provider_id,
+    #                 dashboard=True,
+    #                 manage_role=True,
+    #                 service_listing=True,
+    #                 service_management=True,
+    #                 sales_transactions=True,
+    #                 ratings_reviews=True,
+    #                 report_details=True,
+    #                 roles_management=True,
+    #                 staff_management=True,
+    #                 branch_management=True,
+    #                 all_booking=True,
+    #                 schedule=True,
+    #                 inprogress=True,
+    #                 completed=True,
+    #                 cancelled=True,
+    #             )
+    #             permissions.save()
+    #             print(f"Permissions added for provider {provider_id}")
 
-        except ServiceProvider.DoesNotExist:
-            print(f"Provider with ID {provider_id} not found")
+    #     except ServiceProvider.DoesNotExist:
+    #         print(f"Provider with ID {provider_id} not found")
 
 class RoleViewSet(viewsets.ModelViewSet):
     """
@@ -1468,7 +1471,8 @@ class PermissionsAPIView(APIView):
                     request.data[field] = "true" if value.lower() == "true" else "false"
 
         # Check if an existing permission exists for the given provider and role
-        permission = Permissions.objects.filter(provider_id=provider_id, role_id=role_id).first()
+        # permission = Permissions.objects.filter(provider_id=provider_id, role_id=role_id).first()
+        permission = Permissions.objects.filter(role_id=role_id).first()
 
         if permission:
             # Update existing permission
@@ -1495,7 +1499,8 @@ class PermissionsAPIView(APIView):
 class RoleProviderPermissionsAPIView(APIView):
     def get(self, request, provider_id):
         # Retrieve all permissions related to the provider
-        permissions = Permissions.objects.filter(provider_id=provider_id)
+        # permissions = Permissions.objects.filter(provider_id=provider_id)
+        permissions = Permissions.objects.filter()
 
         if permissions.exists():
             # Serialize and return the data if found
