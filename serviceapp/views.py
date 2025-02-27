@@ -3327,14 +3327,14 @@ class VerifyPaymentView(APIView):
                 provider_id=provider_id,
                 order_id=razorpay_order_id,
                 defaults={
-                    'date': now().date(),
-                    'amount': amount,
-                    'type': "Purchase",
-                    'payment_type': "Online",
+                    # 'date': now().date(),
+                    # 'amount': amount,
+                    # 'type': "Purchase",
+                    # 'payment_type': "Online",
                     'transaction_id': razorpay_payment_id,
-                    'total_amount': total_amount,
-                    'cgst': cgst,  # Store CGST
-                    'sgst': sgst,  # Store SGST
+                    # 'total_amount': total_amount,
+                    # 'cgst': cgst,  # Store CGST
+                    # 'sgst': sgst,  # Store SGST
                     'status': "Success"
                 }
             )
