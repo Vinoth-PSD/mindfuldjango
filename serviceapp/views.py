@@ -4412,7 +4412,7 @@ def generate_sales_transaction_pdf(request):
         <body>
             <div class="header">
                 <div class="header-logo">  
-                    <img src="http://127.0.0.1:8000/media/mindfulBeautyLogoSmall-CXWufzBM.png" alt="Company Logo">
+                    <img src="https://mbimagestorage.blob.core.windows.net/mbimages/mindfulBeautyLogoSmall-CXWufzBM.png" alt="Company Logo">
                 </div>
 
                 <div class="header-title">Transaction Invoice</div>
