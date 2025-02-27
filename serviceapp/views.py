@@ -4816,7 +4816,7 @@ class AddProviderCreditsView(APIView):
         )
 
         # Update provider's available credits
-        provider.available_credits += total_amount
+        provider.available_credits += amount
         provider.save()
 
         # Serialize and return response
