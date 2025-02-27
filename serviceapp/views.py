@@ -2365,9 +2365,13 @@ class CreditsView(APIView):
             provider = ServiceProvider.objects.get(provider_id=provider_id)
 
             # Total credits calculation (only successful transactions)
+            # total_credits = (
+            #     ProviderTransactions.objects.filter(provider=provider, status="Success")
+            #     .aggregate(Sum('total_amount'))['total_amount__sum']
+            # ) or Decimal(0)  # Ensure it's a Decimal
             total_credits = (
                 ProviderTransactions.objects.filter(provider=provider, status="Success")
-                .aggregate(Sum('total_amount'))['total_amount__sum']
+                .aggregate(Sum('amount'))['amount__sum']
             ) or Decimal(0)  # Ensure it's a Decimal
 
             available_credits = Decimal(provider.available_credits)
