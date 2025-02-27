@@ -1741,6 +1741,11 @@ class ModifyAppointmentStatus(APIView):
                 # Deduct used credits from available credits
                 provider.available_credits = current_credits - used_credits
                 provider.save()
+        
+        return Response(
+            {"status": "success", "message": "Appointment status updated successfully."},
+            status=status.HTTP_200_OK
+        )
 
         # total_credits = (
         #         ProviderTransactions.objects.filter(provider=appointment.provider_id, status="Success")
@@ -1777,12 +1782,6 @@ class ModifyAppointmentStatus(APIView):
         #             # Update provider's available credits
         #     provider.available_credits = available_credits
         #     provider.save()
-
-
-        return Response(
-            {"status": "success", "message": "Appointment status updated successfully."},
-            status=status.HTTP_200_OK
-        )
 
 #Appointment update     
 class AppointmentUpdateStatusView(APIView):
@@ -2436,7 +2435,7 @@ class CreditsView(APIView):
 
             total_usedcredits = (
                 Payment.objects.filter(
-                    appointment__provider_id=provider_id, status="Success"
+                    appointment__provider_id=provider_id, appointment__status_id=3 
                 ).aggregate(Sum('credit_points'))['credit_points__sum']
             ) or Decimal(0)
 
