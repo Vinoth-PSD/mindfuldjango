@@ -204,7 +204,7 @@ class LoginViewSet(viewsets.ModelViewSet):
                 # Update response for service provider
                 permissions_data_freelancer={
                 'dashboard': True,
-                'manage_role': True,
+                'manage_role': False,
                 'service_listing': True,
                 'service_management': True,
                 'sales_transactions': True,
