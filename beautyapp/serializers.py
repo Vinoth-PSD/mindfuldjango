@@ -23,7 +23,7 @@ from .models import Review
 from .models import Coupon
 from .models import ServiceFAQ
 from .models import BeautyAppPackage
-from .models import Message,CallbackRequest,Newsletter,ContactForm
+from .models import Message,CallbackRequest,Newsletter,ContactForm,Branches
 
 
 
@@ -51,8 +51,8 @@ class BeautyParlourSerializer(serializers.ModelSerializer):
     
 
 class ServiceProviderSerializer(serializers.ModelSerializer):
-    city = serializers.CharField()
-    state = serializers.CharField()
+    # city = serializers.CharField()
+    # state = serializers.CharField()
 
     class Meta:
         model = ServiceProvider
@@ -60,8 +60,38 @@ class ServiceProviderSerializer(serializers.ModelSerializer):
             'provider_id', 'name', 'email', 'phone', 'years_of_experience',
             'skills', 'specializations', 'rating', 'status', 'working_hours',
             'available_slots', 'created_at', 'updated_at', 'image_url',
-            'business_summary', 'gender_type', 'timings', 'city', 'state'
+            'business_summary', 'gender_type', 'timings'
         ]
+
+# class BranchSerializer(serializers.ModelSerializer):
+#     provider = ServiceProviderSerializer()  # Nested Serializer
+#     city = serializers.CharField(source='location.city')
+#     state = serializers.CharField(source='location.state')
+
+
+#     class Meta:
+#         model = Branches
+#         fields = ['branch_id', 'branch_name', 'location', 'provider', 'service_status', 'created_at', 'updated_at','city', 'state']
+    
+class BranchSerializer(serializers.ModelSerializer):
+    city = serializers.CharField(source='location.city', allow_null=True)
+    state = serializers.CharField(source='location.state', allow_null=True)
+
+    class Meta:
+        model = Branches
+        fields = ['branch_id', 'branch_name', 'location', 'service_status', 'created_at', 'updated_at', 'city', 'state']
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        
+        # Fetch provider details and merge into response
+        if instance.provider:
+            provider_data = ServiceProviderSerializer(instance.provider).data
+            data.update(provider_data)  # Merge provider details into response
+        
+        return data
+
+
 
 class AvailableSlotsSerializer(serializers.ModelSerializer):
     available_slots = serializers.JSONField()

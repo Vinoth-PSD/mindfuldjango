@@ -57,7 +57,7 @@ from datetime import timedelta
 
 from .serializers import AvailableSlotsSerializer
 
-from .models import Review
+from .models import Review , Branches
 from .serializers import ReviewSerializer
 
 import random
@@ -69,7 +69,7 @@ from .models import Coupon
 from .serializers import CouponSerializer
 
 from .models import ServiceFAQ
-from .serializers import ServiceFAQSerializer,MessageSerializer,FrequentlyUsedServiceSerializer,CallbackRequestSerializer,NewsletterSerializer,ServicesProviderSerializer,BookingSerializer,UsersSerializer,ContactFormSerializer,ReviewsSerializer
+from .serializers import ServiceFAQSerializer,MessageSerializer,FrequentlyUsedServiceSerializer,CallbackRequestSerializer,NewsletterSerializer,ServicesProviderSerializer,BookingSerializer,UsersSerializer,ContactFormSerializer,ReviewsSerializer,BranchSerializer
 from django.db import transaction
 from decimal import Decimal
 from django.db.models import Sum
@@ -1783,22 +1783,35 @@ class RecommendedProvidersView(APIView):
             ).filter(distance_km__lte=radius)
 
             # Filter service providers linked to the locations
-            providers_query = ServiceProvider.objects.filter(
-                address_id__in=locations_within_radius
-            )
+            # providers_query = ServiceProvider.objects.filter(
+            #     address_id__in=locations_within_radius
+            # )
+            #changed to branch
+            # providers_query = Branches.objects.filter(
+            #     location_id__in=locations_within_radius
+            # ) 
+            providers_query = Branches.objects.select_related("provider", "location").filter(
+            location_id__in=locations_within_radius
+                )  
 
+            
             # Filter providers by service type, if specified
             if service_type_id:
-                providers_query = providers_query.filter(
-                    service_type_id=service_type_id
-                )
+                providers_query = providers_query.filter(provider__service_type=service_type_id)
 
             # Annotate provider query with location and other details
+            # providers_query = providers_query.annotate(
+            #     latitude=F("address__latitude"),
+            #     longitude=F("address__longitude"),
+            #     city=F("address__city"),
+            #     state=F("address__state"),
+            #     verified=Value(True, output_field=FloatField())
+            # ).order_by("latitude")[:10]
             providers_query = providers_query.annotate(
-                latitude=F("address__latitude"),
-                longitude=F("address__longitude"),
-                city=F("address__city"),
-                state=F("address__state"),
+                latitude=F("location__latitude"),
+                longitude=F("location__longitude"),
+                city=F("location__city"),
+                state=F("location__state"),
                 verified=Value(True, output_field=FloatField())
             ).order_by("latitude")[:10]
 
@@ -1823,7 +1836,7 @@ class RecommendedProvidersView(APIView):
             }
             
             # Serialize provider data
-            serializer = ServiceProviderSerializer(providers_query, many=True)
+            serializer = BranchSerializer(providers_query, many=True)
 
             # Add image URLs, ratings, and review counts to serialized data
             for provider in serializer.data:
@@ -1831,7 +1844,8 @@ class RecommendedProvidersView(APIView):
 
                 # Append base URL to image URL
                 if provider.get("image_url"):
-                    provider["image_url"] = f"{settings.BASE_URL}{provider['image_url']}"
+                    # provider["image_url"] = f"{settings.BASE_URL}{provider['image_url']}"
+                    provider["image_url"] = f"{provider['image_url']}"
 
                 # Add the dynamic rating value
                 provider["rating"] = round(rating_map.get(provider_id, {}).get('average_rating', 0), 1)

@@ -144,6 +144,7 @@ class Branches(models.Model):
     branch_id = models.AutoField(primary_key=True)
     branch_name = models.CharField(max_length=100)
     location = models.ForeignKey(Locations, on_delete=models.CASCADE, related_name='branches')
+    provider=models.ForeignKey('ServiceProvider', on_delete=models.CASCADE)
     service_status = models.IntegerField(choices=[(1, 'Online'), (0, 'Offline')], default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
