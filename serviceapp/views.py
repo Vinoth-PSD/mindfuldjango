@@ -186,6 +186,7 @@ class LoginViewSet(viewsets.ModelViewSet):
                  # Fetch provider and role information
                  provider_entry = getattr(otp_target, 'provider', None)
                  role_entry = getattr(otp_target, 'role', None)
+                 branches = Branches.objects.get(branch_id=provider_entry.branch_id)
              
              
                  response_data.update({
@@ -194,15 +195,18 @@ class LoginViewSet(viewsets.ModelViewSet):
                      'role_name': role_entry.role_name if role_entry else None,
                      'provider_id': provider_entry.provider_id if provider_entry else None,
                      'branch_id': provider_entry.branch_id if provider_entry else None,
+                     'branch_online_status': branches.service_status if provider_entry else None,
                      'permissions': permissions_data,
                      
                  })
 
             else:
                 # Update response for service provider
+                branches = Branches.objects.get(branch_id=otp_target.branch_id)
                 response_data.update({
                     'provider_id': otp_target.provider_id,
                     'branch_id': otp_target.branch_id, 
+                    'branch_online_status': branches.service_status,
                     'image_url': otp_target.image_url.url if otp_target.image_url else None
 
                 })
