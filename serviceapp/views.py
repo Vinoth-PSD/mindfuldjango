@@ -195,7 +195,7 @@ class LoginViewSet(viewsets.ModelViewSet):
                      'provider_id': provider_entry.provider_id if provider_entry else None,
                      'branch_id': provider_entry.branch_id if provider_entry else None,
                      'permissions': permissions_data,
-                     'image_url': otp_target.image_url.url if otp_target.image_url else None
+                     
                  })
 
             else:
@@ -203,7 +203,7 @@ class LoginViewSet(viewsets.ModelViewSet):
                 response_data.update({
                     'provider_id': otp_target.provider_id,
                     'branch_id': otp_target.branch_id, 
-
+                    'image_url': otp_target.image_url.url if otp_target.image_url else None
 
                 })
     
