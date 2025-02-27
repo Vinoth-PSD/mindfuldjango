@@ -35,6 +35,8 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
      location_name = validated_data.pop('location')
      latitude = validated_data.pop('latitude', None)
      longitude = validated_data.pop('longitude', None)
+     service_type = validated_data.get('service_type') 
+     provider_name = validated_data.get('name') 
  
      # Check if location already exists
      location = Locations.objects.filter(city=location_name).order_by('location_id').first()
@@ -58,15 +60,21 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
          )
  
         # Ensure only one branch exists for the location
-     branch = Branches.objects.filter(location=location).order_by('branch_id').first()
+    #  branch = Branches.objects.filter(location=location).order_by('branch_id').first()
 
-     if branch:
-            # If a branch exists, update it
-            branch.branch_name = branch.branch_name or 'Main Branch'
-            branch.save()
-     else:
+    #  if branch:
+    #         # If a branch exists, update it
+    #         branch.branch_name = branch.branch_name or 'Main Branch'
+    #         branch.save()
+    #  else:
             # Create a new branch if not found
-            branch = Branches.objects.create(location=location, branch_name='Main Branch')
+    
+     if service_type == 1:
+         branch_name = 'Main Branch'
+     elif service_type == 2:
+         branch_name = provider_name  
+
+     branch = Branches.objects.create(location=location, branch_name=branch_name)
 
  
      # Assign the branch and address ID

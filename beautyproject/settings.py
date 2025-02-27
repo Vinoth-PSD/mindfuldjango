@@ -208,3 +208,11 @@ CORS_ALLOWED_ORIGINS = [
     
     'http://localhost:5173'
 ]
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'bv-b29.yuvanetworks.in'  # Replace with your SMTP provider
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'anandhi@psdigitise.com'
+EMAIL_HOST_PASSWORD = 'aPzozvzhPX'  # Use an App Password if using Gmail
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

@@ -202,12 +202,37 @@ class LoginViewSet(viewsets.ModelViewSet):
 
             else:
                 # Update response for service provider
+                permissions_data_freelancer={
+                'dashboard': True,
+                'manage_role': True,
+                'service_listing': True,
+                'service_management': True,
+                'sales_transactions': True,
+                'ratings_reviews': True,
+                'report_details': True,
+                'roles_management': False,
+                'staff_management': False,
+                'branch_management': False,
+                'all_booking': True,
+                'schedule': True,
+                'inprogress': True,
+                'completed': True,
+                'cancelled': True,
+            }
+                response_data.update({
+                    'freelancer': otp_target.service_type_id == 2
+                })
+
+                if otp_target.service_type_id == 2:
+                    response_data['permissions'] = permissions_data_freelancer
+
                 branches = Branches.objects.get(branch_id=otp_target.branch_id)
                 response_data.update({
                     'provider_id': otp_target.provider_id,
                     'branch_id': otp_target.branch_id, 
                     'branch_online_status': branches.service_status,
-                    'image_url': otp_target.image_url.url if otp_target.image_url else None
+                    'image_url': otp_target.image_url.url if otp_target.image_url else None,
+                    
 
                 })
     
