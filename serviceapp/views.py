@@ -3230,6 +3230,10 @@ class CreateOrderView(APIView):
                     provider_name = provider.name
                     mobile_number = provider.phone
 
+            cgst = (amount * Decimal(9)) / Decimal(100)  # 9% CGST
+            sgst = (amount * Decimal(9)) / Decimal(100)  # 9% SGST
+            total_amount = amount + cgst + sgst  # Grand Total
+
             # Initialize Razorpay client
             client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
             order_data = {
@@ -3241,7 +3245,21 @@ class CreateOrderView(APIView):
             }
 
             order = client.order.create(order_data)
+            
 
+            transaction = ProviderTransactions.objects.create(
+                    provider_id=provider_id,
+                    date=now().date(),
+                    amount=amount,
+                    type="Purchase",
+                    payment_type="Online",
+                    order_id=order["id"],
+                    total_amount=total_amount,
+                    cgst=cgst,  # Store CGST
+                    sgst=sgst,  # Store SGST
+                    status="Pending"
+                )
+            
             # ✅ Store provider_id temporarily using order_id as key
             verified_payments[order["id"]] = provider_id
 
@@ -3292,19 +3310,35 @@ class VerifyPaymentView(APIView):
                 total_amount = amount + cgst + sgst  # Grand Total
 
                 # ✅ Store successful payment including CGST & SGST
-                transaction = ProviderTransactions.objects.create(
-                    provider_id=provider_id,
-                    date=now().date(),
-                    amount=amount,
-                    type="Purchase",
-                    payment_type="Online",
-                    transaction_id=razorpay_payment_id,
-                    order_id=razorpay_order_id,
-                    total_amount=total_amount,
-                    cgst=cgst,  # Store CGST
-                    sgst=sgst,  # Store SGST
-                    status="Success"
-                )
+                # transaction = ProviderTransactions.objects.create(
+                #     provider_id=provider_id,
+                #     date=now().date(),
+                #     amount=amount,
+                #     type="Purchase",
+                #     payment_type="Online",
+                #     transaction_id=razorpay_payment_id,
+                #     order_id=razorpay_order_id,
+                #     total_amount=total_amount,
+                #     cgst=cgst,  # Store CGST
+                #     sgst=sgst,  # Store SGST
+                #     status="Success"
+                # )
+                transaction, created = ProviderTransactions.objects.update_or_create(
+                provider_id=provider_id,
+                order_id=razorpay_order_id,
+                defaults={
+                    'date': now().date(),
+                    'amount': amount,
+                    'type': "Purchase",
+                    'payment_type': "Online",
+                    'transaction_id': razorpay_payment_id,
+                    'total_amount': total_amount,
+                    'cgst': cgst,  # Store CGST
+                    'sgst': sgst,  # Store SGST
+                    'status': "Success"
+                }
+            )
+
 
                 return Response({
                     "status": "success",
