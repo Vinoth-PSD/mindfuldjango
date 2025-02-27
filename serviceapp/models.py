@@ -375,6 +375,7 @@ class Payment(models.Model):
     payment_status = models.CharField(max_length=20, default='Not Paid')
     coupon_code = models.CharField(max_length=50, null=True, blank=True)
     coupon_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    credit_points = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     payment_mode = models.CharField(
         max_length=20,
         choices=[

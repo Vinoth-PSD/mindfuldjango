@@ -1718,6 +1718,66 @@ class ModifyAppointmentStatus(APIView):
 
         # Save the updated appointment
         appointment.save()
+        
+        if status_id==3:
+            provider = get_object_or_404(ServiceProvider, provider_id=appointment.provider_id)
+
+            current_credits = Decimal(provider.available_credits)
+
+            # Fetch payment for the given appointment
+            payment = Payment.objects.filter(appointment_id=appointment.appointment_id).first()
+
+            if payment and payment.grand_total is not None:
+                grand_total = Decimal(payment.grand_total)
+
+                # Calculate used credits as 30% of grand_total
+                used_credits = round(grand_total * Decimal(0.30))
+
+                payment_same = get_object_or_404(Payment, appointment_id=appointment_id)
+
+                payment_same.credit_points=used_credits
+                payment_same.save()
+
+                # Deduct used credits from available credits
+                provider.available_credits = current_credits - used_credits
+                provider.save()
+
+        # total_credits = (
+        #         ProviderTransactions.objects.filter(provider=appointment.provider_id, status="Success")
+        #         .aggregate(Sum('amount'))['amount__sum']
+        #     ) or Decimal(0)  # Ensure it's a Decimal
+        
+        # if status_id==3:
+                    
+        #     provider = get_object_or_404(ServiceProvider, provider_id=appointment.provider_id)
+
+
+        #     available_credits = Decimal(provider.available_credits)
+        #     #used_credits = Decimal(0)
+
+        #     appointments_with_status_3 = Appointment.objects.filter(
+        #                 #provider=provider,
+        #                 appointment_id=appointment_id
+        #             )
+
+        #     total_grand_total = Decimal(0)
+        #     for appointment in appointments_with_status_3:
+        #         payment = Payment.objects.filter(appointment_id=appointment_id).first()
+        #     if payment and payment.grand_total is not None:
+        #             total_grand_total = Decimal(payment.grand_total)
+
+        #             # Calculate used_credits as 30% of total grand_total
+        #     used_credits = round(total_grand_total * Decimal(0.30))
+
+        #     current_credits=provider.available_credits
+
+        #             # Calculate available credits
+        #     available_credits = current_credits - used_credits
+
+        #             # Update provider's available credits
+        #     provider.available_credits = available_credits
+        #     provider.save()
+
 
         return Response(
             {"status": "success", "message": "Appointment status updated successfully."},
@@ -2374,32 +2434,38 @@ class CreditsView(APIView):
                 .aggregate(Sum('amount'))['amount__sum']
             ) or Decimal(0)  # Ensure it's a Decimal
 
+            total_usedcredits = (
+                Payment.objects.filter(
+                    appointment__provider_id=provider_id, status="Success"
+                ).aggregate(Sum('credit_points'))['credit_points__sum']
+            ) or Decimal(0)
+
             available_credits = Decimal(provider.available_credits)
-            used_credits = Decimal(0)
+            # used_credits = Decimal(0)
 
-            # Start a database transaction to ensure atomicity
-            with transaction.atomic():
-                # Get all appointments with status 3
-                appointments_with_status_3 = Appointment.objects.filter(
-                    provider=provider,
-                    status__status_id=3
-                )
+            # # Start a database transaction to ensure atomicity
+            # with transaction.atomic():
+            #     # Get all appointments with status 3
+            #     appointments_with_status_3 = Appointment.objects.filter(
+            #         provider=provider,
+            #         status__status_id=3
+            #     )
 
-                total_grand_total = Decimal(0)
-                for appointment in appointments_with_status_3:
-                    payment = Payment.objects.filter(appointment=appointment).first()
-                    if payment and payment.grand_total is not None:
-                        total_grand_total += Decimal(payment.grand_total)
+            #     total_grand_total = Decimal(0)
+            #     for appointment in appointments_with_status_3:
+            #         payment = Payment.objects.filter(appointment=appointment).first()
+            #         if payment and payment.grand_total is not None:
+            #             total_grand_total += Decimal(payment.grand_total)
 
-                # Calculate used_credits as 30% of total grand_total
-                used_credits = round(total_grand_total * Decimal(0.30))
+            #     # Calculate used_credits as 30% of total grand_total
+            #     used_credits = round(total_grand_total * Decimal(0.30))
 
                 # Calculate available credits
-                available_credits = total_credits - used_credits
+                # available_credits = total_credits - used_credits
 
                 # Update provider's available credits
-                provider.available_credits = available_credits
-                provider.save()
+                # provider.available_credits = available_credits
+                # provider.save()
 
             # Prepare response
             data = {
@@ -2408,7 +2474,7 @@ class CreditsView(APIView):
                 'provider_id': provider_id,
                 'total_credits': int(total_credits),
                 'available_credits': int(available_credits),
-                'used_credits': int(used_credits),
+                'used_credits': int(total_usedcredits),
             }
 
             return Response(data, status=status.HTTP_200_OK)
