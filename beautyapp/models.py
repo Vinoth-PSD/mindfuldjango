@@ -523,23 +523,24 @@ SELECT
          data.append(row_dict)
 
         # Deduplication function
-    #  def get_distinct_results(query_result):
-    #         unique_provider_ids = set()
-    #         distinct_data = []
+     def get_distinct_results(query_result):
+            unique_branch_ids = set()
+            distinct_data = []
 
-    #         for row_dict in query_result:
-    #             provider_id = row_dict.get("provider_id")
-    #             if provider_id not in unique_provider_ids:
-    #                 unique_provider_ids.add(provider_id)
-    #                 distinct_data.append(row_dict)
+            for row_dict in query_result:
+                branch_id = row_dict.get("branch_id")
+                if branch_id not in unique_branch_ids:
+                    unique_branch_ids.add(branch_id)
+                    distinct_data.append(row_dict)
             
-    #         return distinct_data
+            return distinct_data
 
-    #     # Call the deduplication function with 'data'
-    #  distinct_data = get_distinct_results(data)
+        # Call the deduplication function with 'data'
+     distinct_data = get_distinct_results(data)
 
         # Return the distinct result
-     return data
+     #return data
+     return distinct_data
          
     #return data
 
