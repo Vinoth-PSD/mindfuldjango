@@ -1734,13 +1734,16 @@ class ModifyAppointmentStatus(APIView):
                 used_credits = round(grand_total * Decimal(0.30))
 
                 payment_same = get_object_or_404(Payment, appointment_id=appointment_id)
+                if current_credits >= used_credits:
+                    payment_same.credit_points=used_credits
+                    payment_same.save()
 
-                payment_same.credit_points=used_credits
-                payment_same.save()
-
-                # Deduct used credits from available credits
-                provider.available_credits = current_credits - used_credits
-                provider.save()
+                    # Deduct used credits from available credits
+                    provider.available_credits = current_credits - used_credits
+                    provider.save()
+                else:
+                    {"status": "success", "message": "In sufficient balace to complete the appointment"},
+            status=status.HTTP_200_OK
         
         return Response(
             {"status": "success", "message": "Appointment status updated successfully."},
@@ -3392,6 +3395,7 @@ class VerifyPaymentView(APIView):
                 #     sgst=sgst,  # Store SGST
                 #     status="Success"
                 # )
+                
                 transaction, created = ProviderTransactions.objects.update_or_create(
                 provider_id=provider_id,
                 order_id=razorpay_order_id,
@@ -3407,7 +3411,15 @@ class VerifyPaymentView(APIView):
                     'status': "Success"
                 }
             )
+                
+                #purchased_credit=amount
 
+                purchased_credit = transaction.amount  # Assuming total_amount is the order amount
+
+                # Update provider's available_credits
+                provider = ServiceProvider.objects.get(provider_id=provider_id)
+                provider.available_credits = Decimal(provider.available_credits) + Decimal(purchased_credit)
+                provider.save()
 
                 return Response({
                     "status": "success",
