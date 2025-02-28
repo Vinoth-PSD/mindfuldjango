@@ -69,9 +69,10 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
     #  else:
             # Create a new branch if not found
     
+     branch_name =''
      if service_type == 1:
          branch_name = 'Main Branch'
-     elif service_type == 2:
+     elif service_type == 2  and provider_name:
          branch_name = provider_name  
 
      branch = Branches.objects.create(location=location, branch_name=branch_name)
