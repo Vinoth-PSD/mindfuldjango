@@ -29,7 +29,6 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
             'phone': {'required': True},
             'location': {'required': True},
             'service_type': {'required': True},
-            'provider_name': {'required': True},
         }
 
     def create(self, validated_data):
@@ -69,12 +68,12 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
     #         branch.save()
     #  else:
             # Create a new branch if not found
-     branch_name=''
+    
      if service_type == 1:
          branch_name = 'Main Branch'
-     elif service_type == 2 and provider_name:
+     elif service_type == 2:
          branch_name = provider_name  
-    
+
      branch = Branches.objects.create(location=location, branch_name=branch_name)
 
  
@@ -95,13 +94,13 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
        
 class SalonDetailsSerializer(serializers.ModelSerializer):
     saloon_location = serializers.CharField(write_only=True) 
-    saloon_address = serializers.CharField(write_only=True) 
+    saloon_address = serializers.CharField(write_only=True, required=False, allow_null=True) 
     latitude = serializers.FloatField(write_only=True, required=False, allow_null=True)
     longitude = serializers.FloatField(write_only=True, required=False, allow_null=True)
     available_slots = serializers.ListField(
         child=serializers.CharField(allow_blank=True),
         required=False,
-        default=[]
+        default=["8:00 AM,9:00 AM,10:00 AM,11:00 AM,12:00 PM,1:00 PM,2:00 PM,3:00 PM,4:00 PM,5:00 PM,6:00 PM,7:00 PM "]
     )
     image_url = serializers.ImageField(required=True)  
 
@@ -127,10 +126,9 @@ class SalonDetailsSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """Ensure 'available_slots' is always set with default values if not provided."""
-        validated_data['available_slots'] = [
-            "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", 
-            "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM"
-        ]
+        validated_data.setdefault('available_slots', [
+            "8:00 AM,9:00 AM,10:00 AM,11:00 AM,12:00 PM,1:00 PM,2:00 PM,3:00 PM,4:00 PM,5:00 PM,6:00 PM,7:00 PM "
+        ])
         return super().create(validated_data)
                 
         #print(data)
@@ -778,6 +776,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
     appointment_time = serializers.SerializerMethodField()
     stylist_name = serializers.SerializerMethodField()
     stylist_id = serializers.SerializerMethodField()
+    stylist_photo = serializers.SerializerMethodField()  # Add stylist photo field
     provider_id = serializers.SerializerMethodField()  # Add provider_id
     provider_name = serializers.SerializerMethodField()  # Add provider_name
 
@@ -794,6 +793,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'branch_city',
             'stylist_name',
             'stylist_id',
+            'stylist_photo',  
             'provider_id',  # Include provider_id
             'provider_name',  # Include provider_name
         ]
@@ -816,15 +816,27 @@ class AppointmentSerializer(serializers.ModelSerializer):
         return obj.appointment_time.strftime('%H:%M')
 
     def get_stylist_name(self, obj):
+        """Fetch stylist name from Staff table instead of Beautician."""
         if obj.stylist_id:
             try:
-                return Beautician.objects.get(id=obj.stylist_id).name
-            except Beautician.DoesNotExist:
+                return Staff.objects.get(staff=obj.stylist_id).name
+            except Staff.DoesNotExist:
                 return None
         return None
 
     def get_stylist_id(self, obj):
+        """Return stylist ID from Staff table."""
         return obj.stylist_id if obj.stylist_id else None
+
+    def get_stylist_photo(self, obj):
+        """Fetch stylist photo from Staff table."""
+        if obj.stylist_id:
+            try:
+                staff = Staff.objects.get(staff=obj.stylist_id)
+                return staff.photo.url if staff.photo else None
+            except Staff.DoesNotExist:
+                return None
+        return None
 
     def get_provider_id(self, obj):
         return obj.provider_id if hasattr(obj, 'provider_id') else None  # Ensure the field exists

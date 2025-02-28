@@ -83,7 +83,7 @@ from django.db.models import F, Func, Value, FloatField,ExpressionWrapper
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import ACos, Cos, Radians, Sin
 from django.core.mail import send_mail
-
+from django.utils.html import format_html
 
 
 
@@ -462,7 +462,7 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
-    def list(self, request, *args, **kwargs):
+    def list(self, request, args, *kwargs):
         try:
             queryset = self.get_queryset()
             serializer = self.get_serializer(queryset, many=True)
@@ -480,49 +480,71 @@ class UserViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
     
     # POST method (create)
-    def create(self, request, *args, **kwargs):
+    def create(self, request, args, *kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid():
                 user = serializer.save()  # Save the new user
+                
+                # Email subject
+                email_subject = "Welcome to Mindful Beauty"
 
-                # Send OTP verification success email
-                email_subject = "Registration Successful"
-                email_message = (
-                    f"Dear {user.name},\n\n"
-                    "Welcome to Mindful Beauty!\n"
-                    "We are delighted to have you on board. Your registration has been successfully completed.\n"
-                    "You can now access your account and explore our services.\n\n"
-                    "Best Regards,\nMindful Beauty Team"
+                # HTML Email Content with Logo
+                email_message = format_html(
+                    """
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                        <div style="text-align: center;">
+                            <img src="https://mbimagestorage.blob.core.windows.net/mbimages/mindfulBeautyLogoSmall-CXWufzBM.png" alt="Mindful Beauty" style="width: 150px; margin-bottom: 20px;">
+                        </div>
+                        <h2 style="color: #333;">Welcome, {name}!</h2>
+                        <p style="font-size: 16px; color: #555;">
+                            We are delighted to have you on board. Your registration has been successfully completed.
+                            You can now access your account and explore our services.
+                        </p>
+                        <hr style="margin: 20px 0;">
+                        <p style="font-size: 14px; text-align: center; color: #777;">
+                            Best Regards,<br>
+                            <strong>Mindful Beauty Team</strong>
+                        </p>
+                    </div>
+                    """,
+                    name=user.name  # Dynamically insert user's name
                 )
 
-
-                send_mail(
-                    email_subject,
-                    email_message,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [user.email],  # Send email to the registered user
-                    fail_silently=False
-                )
+                # Try to send the email
+                try:
+                    send_mail(
+                        email_subject,
+                        '',  # Plain text version (empty since we're sending HTML)
+                        settings.DEFAULT_FROM_EMAIL,
+                        [user.email],  # Send to registered user
+                        fail_silently=True,  # Fail silently to prevent errors
+                        html_message=email_message  # HTML email content
+                    )
+                    email_status = "Email sent successfully"
+                except Exception as e:
+                    email_status = f"Email failed: {str(e)}"  # Log the error but continue
 
                 return Response({
                     'status': 'success',
-                    'message': 'User created successfully and email sent',
+                    'message': 'User created successfully',
+                    'email_status': email_status,  # Show email status in response
                     'data': serializer.data
                 }, status=status.HTTP_200_OK)
+
             else:
                 return Response({
                     'status': 'failure',
                     'message': 'User creation failed',
                     'errors': serializer.errors
                 }, status=status.HTTP_200_OK)
-        
+
         except Exception as e:
             return Response({
                 'status': 'failure',
                 'message': 'An error occurred while creating the user',
                 'error': str(e)
-            }, status=status.HTTP_404_NOT_FOUND)
+            }, status=status.HTTP_200_OK)  # Changed 404 to 200 to avoid breaking flow
 
 
 class StaffViewSet(viewsets.ModelViewSet):
@@ -1304,7 +1326,9 @@ class ProviderActionAPIView(APIView):
     def post(self, request):
         appointment_id = request.data.get('appointment_id')
         action_id = request.data.get('action_id')
-        stylist_id = request.data.get('stylist_id')  # Optional stylist_id
+        stylist_id = request.data.get('stylist_id') 
+        freelancer = request.data.get('freelancer', False) 
+
 
         # Validate required fields
         if not appointment_id or action_id is None:
@@ -1351,7 +1375,7 @@ class ProviderActionAPIView(APIView):
                 appointment.otp = otp  # Assign OTP to appointment
                 
                 # Assign stylist_id if provided
-                if stylist_id:
+                if not freelancer and stylist_id:
                     appointment.stylist_id = stylist_id
 
                 appointment.save()
@@ -1419,6 +1443,7 @@ class DeclineAppointmentMessageAPIView(APIView):
         appointment_id = request.data.get('appointment_id')
         message_id = request.data.get('message_id')
 
+        # Validate appointment_id and message_id
         if not appointment_id or not message_id:
             return Response(
                 {"status": "error", "message": "Appointment ID and message ID are required"},
@@ -1437,34 +1462,62 @@ class DeclineAppointmentMessageAPIView(APIView):
             appointment.status_id = 4  # Set status to 'cancelled'
             appointment.save()
 
-             # Send cancellation email to the user
+            email_status = "No email sent"  # Default email status
+
+            # Send cancellation email to the user
             subject = "Your Appointment Has Been Cancelled"
-            email_body = f"""
-            Dear {user.name},
 
-            We regret to inform you that your appointment (ID: {appointment_id}) has been cancelled.
-
-            Reason for cancellation:
-            "{message.text}"
-
-            If you have any questions, please contact us.
-
-            Best regards,
-            Beauty App Team
-            """
-
-            send_mail(
-                subject,
-                email_body,
-                settings.DEFAULT_FROM_EMAIL,  
-                [user.email],  
-                fail_silently=False,
+            # HTML Email Template
+            email_body = format_html(
+                """
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                    <div style="text-align: center;">
+                        <img src="https://mbimagestorage.blob.core.windows.net/mbimages/mindfulBeautyLogoSmall-CXWufzBM.png" alt="Mindful Beauty" style="width: 150px; margin-bottom: 20px;">
+                    </div>
+                    <h2 style="color: #d9534f;">Dear {name},</h2>
+                    <p style="font-size: 16px; color: #555;">
+                        We regret to inform you that your appointment (ID: <strong>{appointment_id}</strong>) has been cancelled.
+                    </p>
+                    <p style="font-size: 16px; color: #555;">
+                        <strong>Reason for cancellation:</strong><br>
+                        "{reason}"
+                    </p>
+                    <p style="font-size: 16px; color: #777;">
+                        If you have any questions, please contact us.
+                    </p>
+                    <hr style="margin: 20px 0;">
+                    <p style="font-size: 14px; text-align: center; color: #777;">
+                        Best Regards,<br>
+                        <strong>Mindful Beauty Team</strong>
+                    </p>
+                </div>
+                """,
+                name=user.name,
+                appointment_id=appointment_id,
+                reason=message.text
             )
 
+            # Try to send the email
+            try:
+                send_mail(
+                    subject,
+                    '',  # Empty plain text (since we send HTML)
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],  # Sending to user's email
+                    fail_silently=True,  # Fail silently to prevent API crash
+                    html_message=email_body  # HTML email content
+                )
+                email_status = "Email sent successfully"
+            except Exception as e:
+                email_status = f"Email failed: {str(e)}"
 
             # Return a success response
             return Response(
-                {"status": "success", "message": "Appointment canceled by provider and email sent to the user"},
+                {
+                    "status": "success",
+                    "message": "Appointment canceled by provider and email sent to the user",
+                    "email_status": email_status,  # Email status added
+                },
                 status=status.HTTP_200_OK
             )
 

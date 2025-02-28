@@ -40,6 +40,7 @@ from django.utils.timezone import now
 import csv
 import traceback
 from django.core.mail import send_mail
+from django.utils.html import format_html
 
 
 
@@ -317,41 +318,62 @@ class RegisterServiceProvider(APIView):
             # Save the service provider
             service_provider = serializer.save()
 
-            # Send a confirmation email
+            # Email subject
             email_subject = "Welcome to Mindful Beauty!"
-            email_message = (
-                f"Dear {service_provider.name},\n\n"
-                "Congratulations! Your registration as a service provider has been successfully completed.\n"
-                "Your account is currently under review, and you will be notified once approved by our admin team.\n\n"
-                "Best Regards,\nMindful Beauty Team"
+
+            # HTML Email Content with Logo
+            email_message = format_html(
+                """
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                    <div style="text-align: center;">
+                        <img src="https://mbimagestorage.blob.core.windows.net/mbimages/mindfulBeautyLogoSmall-CXWufzBM.png" alt="Mindful Beauty" style="width: 150px; margin-bottom: 20px;">
+                    </div>
+                    <h2 style="color: #333;">Welcome, {name}!</h2>
+                    <p style="font-size: 16px; color: #555;">
+                        Congratulations! Your registration as a service provider has been successfully completed.<br>
+                        Your account is currently under review, and you will be notified once approved by our admin team.
+                    </p>
+                    <hr style="margin: 20px 0;">
+                    <p style="font-size: 14px; text-align: center; color: #777;">
+                        Best Regards,<br>
+                        <strong>Mindful Beauty Team</strong>
+                    </p>
+                </div>
+                """,
+                name=service_provider.name  # Dynamically insert service provider's name
             )
 
-
-            send_mail(
-                email_subject,
-                email_message,
-                settings.DEFAULT_FROM_EMAIL,
-                [service_provider.email],  # Send email to the registered provider
-                fail_silently=False
-            )
-
+            # Try to send the email
+            try:
+                send_mail(
+                    email_subject,
+                    '',  # Plain text version (empty since we're sending HTML)
+                    settings.DEFAULT_FROM_EMAIL,
+                    [service_provider.email],  # Send to registered provider
+                    fail_silently=True,  # Fail silently to prevent errors
+                    html_message=email_message  # HTML email content
+                )
+                email_status = "Email sent successfully"
+            except Exception as e:
+                email_status = f"Email failed: {str(e)}"  # Log the error but continue
 
             return Response(
                 {
                     "status": "success",
                     "message": "Service Provider registered successfully!",
+                    "email_status": email_status,  # Show email status in response
                     "data": serializer.data
-
                 },
                 status=status.HTTP_201_CREATED,
             )
+
         return Response(
             {
                 "status": "failure",
                 "message": "Service Provider with this phone number already exists.",
                 "errors": serializer.errors
             },
-            status=status.HTTP_404_NOT_FOUND
+            status=status.HTTP_400_BAD_REQUEST  # Changed to 400 for proper error handling
         )
     
 class ProviderGeneralInfo(APIView):
@@ -2266,12 +2288,27 @@ def generate_invoice_pdf(request):
                 body { font-family: Arial, sans-serif; }
                 .header { text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
                 .section { margin-bottom: 20px; }
-                .details, .services { width: 100%; border-collapse: collapse; }
-                .details td, .services th, .services td { border: 1px solid #ddd; padding: 8px; }
-                .services th { text-align: left; background-color: #f2f2f2; }
+                .details, .services { width: 100%;  }
+                .details td, .services th, .services td { padding: 8px; border:none;}
+                .services{ margin-bottom:2rem;}
+                .services th { font-size:1.8rem; background-color: #f2f2f2;  }
                 .totals { text-align: right; margin-top: 20px; }
                 .logo { text-align: left; margin-bottom: 20px; }
                 .logo img { width: 150px; }
+                .invoice-info{margin-bottom:2rem;}
+                .invoice-info tr td {vertical-align:top;}
+                .invoice-title{font-size:1.8rem !important ;font-weight:600; }
+                .invoice-info tr td{font-size:1rem;}
+               .invoice-info-td{ font-size:1.2rem;}
+
+               .invoice-info-right .invoice-title,.invoice-info-right .invoice-info-td{text-align:right;} 
+               .text-right{text-align:right !important;}
+               .text-left{text-align:left !important;}
+               .border-bottom{border-bottom: 1px solid #ddd;}
+               .font-xl{font-size:1.2rem;}
+               .border-none{border:none;}
+                .padding-ten{padding : 10px 0;}
+
             </style>
         </head>
         <body>
@@ -2281,44 +2318,116 @@ def generate_invoice_pdf(request):
                 {% endif %}
             </div>
             
-            <div class="header">Invoice</div>
 
-            <div class="section">
-                <strong>Invoice to:</strong><br>
-                {{ invoice.user.name }} | {{ invoice.user.phone }}<br>
-                {{ invoice.user.address }}
-            </div>
+               <table class="invoice-info">
+                <tr>
+                    <td>
+                        <p class="invoice-title">Invoice to:</p>
+                        
+                        <p class="invoice-info-td" >
+                        {{ invoice.user.name }} | {{ invoice.user.phone }}
+                        </p>
+                       
+                        <p class="invoice-info-td" >{{ invoice.user.address }}</p>
+                    </td>
+                    <td class="invoice-info-right">
+                        <p class="invoice-title">Payment Details:</p>
+                        <p class="invoice-info-td" >
+                        Total Due:<b> Rs. {{ invoice.payment.grand_total }}</b>
+                        
+                        </p>
+                        <p class="invoice-info-td">
+                        Payment Mode: {{ invoice.payment.payment_mode }}
+                        </p>
+                        <p class="invoice-info-td">
+                        Payment Status: {{ invoice.payment.payment_status }}
+                        </p>
+                        <p class="invoice-info-td">
+                        Coupon: {{ invoice.payment.coupon_code|default:"NIL" }}
+                        </p>
 
-            <div class="section">
-                <strong>Payment Details:</strong><br>
-                Total Due: Rs. {{ invoice.payment.grand_total }}<br>
-                Payment Mode: {{ invoice.payment.payment_mode }}<br>
-                Payment Status: {{ invoice.payment.payment_status }}<br>
-                Coupon: {{ invoice.payment.coupon_code|default:"NIL" }}
-            </div>
+                    </td>
+                </tr>
+            </table>
 
-            <table class="services">
+
+            <table class="services border-bottom">
                 <thead>
-                    <tr>
-                        <th>Description</th>
-                        <th>Charges</th>
+                    <tr >
+                        <th class="text-left border-none">Description</th>
+                        <th class="text-right border-none">Charges</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for service in invoice.services %}
-                    <tr>
-                        <td>{{ service.name }}</td>
-                        <td>Rs. {{ service.price }}</td>
+                    <tr class="border-none">
+                        <td class="text-left font-xl"><b>{{ service.name }}</b></td>
+                        <td class="text-right font-xl"><b>Rs. {{ service.price }}</b></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
 
-            <div class="totals">
-                <p>SGST Tax: Rs. {{ invoice.payment.sgst }}</p>
-                <p>CGST Tax: Rs. {{ invoice.payment.cgst }}</p>
-                <p><strong>Total: Rs. {{ invoice.payment.grand_total }}</strong></p>
-            </div>
+            <table>
+                <tr>
+                    <td>
+                    
+                    </td>
+                    <td>
+                        <table class="totals">
+                            <tr class="border-bottom">
+                                <td>
+                                    <p class="text-left font-xl padding-ten"><b>Sub Total</b></p>
+                                </td>
+                            </tr>
+                            <tr class="">
+                                <td>
+                                                <p class="text-left font-xl padding-ten">SGST Tax: </p>
+                                </td>
+                                <td>
+                                <p class="text-right font-xl padding-ten">
+                                        Rs. {{ invoice.payment.sgst }}
+                                </p>
+                                </td>
+                            </tr>
+                            <tr class="border-bottom">
+                                <td>
+                                                <p class="text-left font-xl padding-ten">
+                                CGST Tax:
+                                                
+                                                </p>
+
+                                </td>
+                                <td>
+                                                <p class="text-right font-xl padding-ten">
+                                Rs. {{ invoice.payment.cgst }}
+                                                
+                                                </p>
+
+                                </td>
+                            </tr>
+                            <tr class="">
+                                <td>
+                                                <p class="text-left font-xl padding-ten">
+                                <b>Total: </b>
+                                                
+                                                </p>
+
+                                </td>
+                                <td>
+                                                <p class="text-right font-xl padding-ten">
+                               <b> Rs. {{ invoice.payment.grand_total }}</b>
+                                                
+                                                </p>
+
+                                </td>
+                            </tr>
+                            </table>
+                    </td>
+                </tr>
+            </table>
+
+            
         </body>
         </html>
         """
@@ -2898,12 +3007,14 @@ class UpdateServiceProviderStatus(APIView):
         provider_id = request.data.get('provider_id')
         new_status = request.data.get('status')
 
+        # Validate provider_id
         if not provider_id:
             return Response(
                 {"status": "failure", "message": "Provider ID is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Validate status
         if not new_status or new_status not in ['Active', 'Inactive']:
             return Response(
                 {
@@ -2916,7 +3027,7 @@ class UpdateServiceProviderStatus(APIView):
         # Fetch the ServiceProvider instance by provider_id
         service_provider = get_object_or_404(ServiceProvider, provider_id=provider_id)
 
-        # Remove restriction on moving from Pending to Inactive
+        # Check if status is already the same
         if service_provider.status == new_status:
             return Response(
                 {
@@ -2930,28 +3041,53 @@ class UpdateServiceProviderStatus(APIView):
         service_provider.status = new_status
         service_provider.save()
 
-         # ✅ Send email notification if status is set to 'Active'
+        email_status = "No email sent"  # Default email status
+
+        # ✅ Send email notification if status is set to 'Active'
         if new_status == "Active":
             subject = "Your Account Has Been Approved!"
-            email_message = (
-                f"Dear {service_provider.name},\n\n"
-                "We are pleased to inform you that your registration as a service provider has been approved.\n"
-                "You can now log in and start offering your services.\n\n"
-                "Best Regards,\nMindful Beauty Team"
+
+            # HTML Email Content with Logo
+            email_message = format_html(
+                """
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                    <div style="text-align: center;">
+                        <img src="https://mbimagestorage.blob.core.windows.net/mbimages/mindfulBeautyLogoSmall-CXWufzBM.png" alt="Mindful Beauty" style="width: 150px; margin-bottom: 20px;">
+                    </div>
+                    <h2 style="color: #333;">Dear {name},</h2>
+                    <p style="font-size: 16px; color: #555;">
+                        We are pleased to inform you that your registration as a service provider has been approved.<br>
+                        You can now log in and start offering your services.
+                    </p>
+                    <hr style="margin: 20px 0;">
+                    <p style="font-size: 14px; text-align: center; color: #777;">
+                        Best Regards,<br>
+                        <strong>Mindful Beauty Team</strong>
+                    </p>
+                </div>
+                """,
+                name=service_provider.name  # Dynamically insert service provider's name
             )
 
-            send_mail(
-                subject,
-                email_message,
-                settings.DEFAULT_FROM_EMAIL,
-                [service_provider.email],  # Sending to provider's email
-                fail_silently=False,  # Set to False to catch errors
-            )
+            # Try to send the email
+            try:
+                send_mail(
+                    subject,
+                    '',  # Empty plain text (since we send HTML)
+                    settings.DEFAULT_FROM_EMAIL,
+                    [service_provider.email],  # Sending to provider's email
+                    fail_silently=True,  # Fail silently to prevent API crash
+                    html_message=email_message  # HTML email content
+                )
+                email_status = "Email sent successfully"
+            except Exception as e:
+                email_status = f"Email failed: {str(e)}"
 
         return Response(
             {
                 "status": "success",
                 "message": f"Service Provider status updated to {new_status}.",
+                "email_status": email_status,  # Email status added
                 "data": {
                     "provider_id": service_provider.provider_id,
                     "name": service_provider.name,
@@ -2960,7 +3096,6 @@ class UpdateServiceProviderStatus(APIView):
             },
             status=status.HTTP_200_OK,
         )
-
 
 class ProviderDetailsView(APIView):
     def get(self, request, format=None):
@@ -3078,6 +3213,39 @@ class UpdateProviderDetails(APIView):
             "message": "Failed to update provider details.",
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
+
+#provider file upload
+class UploadProviderFiles(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def put(self, request, format=None):
+        provider_id = request.data.get('provider_id')
+        tax_id = request.data.get('tax_id')
+
+        if not provider_id or not tax_id:
+            return Response({"detail": "Provider ID and Tax ID are required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        provider = get_object_or_404(ServiceProvider, provider_id=provider_id)
+        
+        # Update provider image
+        if 'image_url' in request.FILES:
+            provider.image_url = request.FILES['image_url']
+            provider.save()
+
+        tax_record = get_object_or_404(ProviderTaxRegistration, id=tax_id, provider_id=provider_id)
+
+        # Update files if provided
+        for key in ['tax_file', 'gst_file', 'identity_file', 'address_file']:
+            if key in request.FILES:
+                setattr(tax_record, key, request.FILES[key])
+
+        tax_record.save()
+
+        return Response({
+            "status": "success",
+            "message": "Files uploaded successfully."
+        }, status=status.HTTP_200_OK)
+
 
 #Stylist 
 class StylistListView(APIView):
@@ -4586,7 +4754,7 @@ def generate_sales_transaction_pdf(request):
                 .details-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
                 .details-table th, .details-table td { border: 1px solid #ddd; padding: 10px; text-align: center; font-size: 14px; }
                 .details-table th { background-color: #f4f4f4; font-weight: bold; }
-                .totals { text-align: right; font-size: 16px; font-weight: bold; margin-top: 15px; }
+                .totals { text-align: right; font-size:1.2rem; margin-top: 15px; }
                 .payment-status { font-weight: bold; }
                 .invoice-box {
                     border: 1px solid #ccc;
@@ -4597,6 +4765,23 @@ def generate_sales_transaction_pdf(request):
                     background-color: #f9f9f9;
                     border-radius: 6px;
                 }
+                .invoice-info{margin-bottom:2rem;}
+                .invoice-info tr td {vertical-align:top;}
+                .invoice-title{font-size:1.8rem !important ;font-weight:600; }
+                .invoice-info tr td{font-size:1rem;}
+               .invoice-info-td{ font-size:1.2rem;}
+
+               .invoice-info-right .invoice-title,.invoice-info-right .invoice-info-td{text-align:right;} 
+               .text-right{text-align:right !important;}
+               .text-left{text-align:left !important;}
+               .border-bottom{border-bottom: 1px solid #ddd;}
+               .font-xl{font-size:1.2rem;}
+               .border-none{border:none;}
+                .padding-ten{padding : 10px 0;}
+
+                     .services{ margin-bottom:2rem;}
+                .services th { font-size:1.8rem; background-color: #f2f2f2;  }
+
             </style>
         </head>
         <body>
@@ -4605,47 +4790,130 @@ def generate_sales_transaction_pdf(request):
                     <img src="https://mbimagestorage.blob.core.windows.net/mbimages/mindfulBeautyLogoSmall-CXWufzBM.png" alt="Company Logo">
                 </div>
 
-                <div class="header-title">Transaction Invoice</div>
             </div>
+
+            <table class="invoice-info">
+                <tr>
+                    <td>
+                        <p class="invoice-title">Provider Details:</p>
+                        
+                        <p class="invoice-info-td" >
+                       {{ invoice.provider.name }} | {{ invoice.provider.phone }}
+                        </p>
+                       
+                        <p class="invoice-info-td" > Owner: {{ invoice.provider.owner_name }}</p>
+                        <p class="invoice-info-td" >Address: {{ invoice.provider.address }}</p>
+                    </td>
+                    <td class="invoice-info-right">
+                        <p class="invoice-title">Transaction Details:</p>
+                        <p class="invoice-info-td" >
+                        <strong>Transaction ID:</strong> {{ invoice.transaction.transaction_id }}
+                        
+                        </p>
+                        <p class="invoice-info-td">
+                      <strong>Order ID:</strong> {{ invoice.transaction.order_id }}
+                        </p>
+                        <p class="invoice-info-td">
+                        <strong>Date:</strong> {{ invoice.transaction.date }}
+                        </p>
+                        <p class="invoice-info-td">
+                        <strong>Payment Mode:</strong> {{ invoice.transaction.payment_type }}
+                        </p>
+                        <p class="invoice-info-td">
+                        <strong>Payment Status:</strong> <span class="payment-status">{{ invoice.transaction.status }}</span>
+                        </p>
+
+                    </td>
+                </tr>
+            </table>
         
-            <div class="section">
-                <strong>Provider Details:</strong><br>
-                {{ invoice.provider.name }} | {{ invoice.provider.phone }}<br>
-                Owner: {{ invoice.provider.owner_name }}<br>
-                Address: {{ invoice.provider.address }}
-            </div>
-        
-            <div class="section">
-                <strong>Transaction Details:</strong><br>
-                <strong>Transaction ID:</strong> {{ invoice.transaction.transaction_id }}<br>
-                <strong>Order ID:</strong> {{ invoice.transaction.order_id }}<br>
-                <strong>Date:</strong> {{ invoice.transaction.date }}<br>
-                <strong>Payment Mode:</strong> {{ invoice.transaction.payment_type }}<br>
-                <strong>Payment Status:</strong> <span class="payment-status">{{ invoice.transaction.status }}</span>
-            </div>
-        
-            <div class="invoice-box">
-                <table class="details-table">
-                    <tr>
-                        <th>Item</th>
-                        <th>Credits</th>
-                        <th>SGST (Rs.)</th>
-                        <th>CGST (Rs.)</th>
-                        <th>Amount (Rs.)</th>
+           <table class="services border-bottom">
+                <thead>
+                    <tr >
+                        <th class="text-left border-none font-xl padding-ten">Item</th>
+                        <th class="text-right border-none font-xl padding-ten">Credits</th>
                     </tr>
-                    <tr>
-                        <td><strong>Wallet Recharge</strong></td>
-                        <td>{{ invoice.transaction.credits }}</td>
-                        <td>{{ invoice.transaction.sgst }}</td>
-                        <td>{{ invoice.transaction.cgst }}</td>
-                        <td>{{ invoice.transaction.amount }}</td>
+                </thead>
+                <tbody>
+                    
+                    <tr class="border-none">
+                        <td class="text-left font-xl padding-ten "><b>Wallet Recharge</b></td>
+                        <td class="text-right font-xl padding-ten"><b>Rs. {{ invoice.transaction.credits }}</b></td>
                     </tr>
-                </table>
-            </div>
+           
+                </tbody>
+            </table>
+
+            <table>
+                <tr>
+                    <td>
+                    
+                    </td>
+                    <td>
+                        <table class="totals">
+                            <tr class="border-bottom">
+                                <td>
+                                    <p class="text-left font-xl padding-ten"><b>Sub Total</b></p>
+                                </td>
+                            </tr>
+                            <tr class="">
+                                <td>
+                                                <p class="text-left font-xl padding-ten">SGST Tax: </p>
+                                </td>
+                                <td>
+                                <p class="text-right font-xl padding-ten">
+                                        Rs. {{ invoice.transaction.sgst }}
+                                </p>
+                                </td>
+                            </tr>
+                            <tr class="">
+                                <td>
+                                                <p class="text-left font-xl padding-ten">Amount: </p>
+                                </td>
+                                <td>
+                                <p class="text-right font-xl padding-ten">
+                                        Rs. {{ invoice.transaction.amount }}
+                                </p>
+                                </td>
+                            </tr>
+                            <tr class="border-bottom">
+                                <td>
+                                                <p class="text-left font-xl padding-ten">
+                                CGST Tax:
+                                                
+                                                </p>
+
+                                </td>
+                                <td>
+                                                <p class="text-right font-xl padding-ten">
+                                Rs. {{ invoice.transaction.cgst }}
+                                                
+                                                </p>
+
+                                </td>
+                            </tr>
+                            <tr class="">
+                                <td>
+                                                <p class="text-left font-xl padding-ten">
+                                <b>Total: </b>
+                                                
+                                                </p>
+
+                                </td>
+                                <td>
+                                                <p class="text-right font-xl padding-ten">
+                               <b> Rs. Rs. {{ invoice.transaction.total_amount }}</b>
+                                                
+                                                </p>
+
+                                </td>
+                            </tr>
+                            </table>
+                    </td>
+                </tr>
+            </table>
         
-            <div class="totals">
-                <p>Total: Rs. {{ invoice.transaction.total_amount }}</p>
-            </div>
+
         </body>
         </html>
         """
@@ -5141,3 +5409,48 @@ class CancelAppointmentByProviderAPIView(APIView):
                 {"status": "failure", "message": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+#Providers category
+class ProviderCategoryView(APIView):
+    def get(self, request):
+        provider_id = request.GET.get('provider_id')  # Get provider_id from query params
+
+        if not provider_id:
+            return Response({
+                "status": "error",
+                "message": "provider_id is required",
+                "data": []
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Step 1: Get service IDs for the provider where status='Active' and is_deleted=False
+            service_ids = Serviceprovidertype.objects.filter(
+                provider_id=provider_id,
+                status='Active',
+                is_deleted=False
+            ).values_list('service_id', flat=True)
+
+            # Step 2: Get distinct category IDs from Services table where status='Active' and is_deleted=False
+            category_ids = Services.objects.filter(
+                service_id__in=service_ids,
+                status='Active',
+                is_deleted=False
+            ).values_list('category_id', flat=True).distinct()
+
+            # Step 3: Fetch distinct categories
+            categories = Category.objects.filter(
+                category_id__in=category_ids
+            ).values('category_id', 'category_name', 'status', 'image', 'is_deleted').distinct()
+
+            return Response({
+                "status": "success",
+                "message": "Categories fetched successfully",
+                "data": list(categories)  # Convert QuerySet to list
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "status": "error",
+                "message": str(e),
+                "data": []
+            }, status=status.HTTP_400_BAD_REQUEST)
