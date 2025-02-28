@@ -226,8 +226,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
     appointment_time = serializers.SerializerMethodField()
     stylist_name = serializers.SerializerMethodField()  # Add stylist name
     stylist_id = serializers.SerializerMethodField()  # Add stylist_id field
-    stylist_photo = serializers.SerializerMethodField()  # Add stylist photo field
-
 
     class Meta:
         model = Appointment
@@ -242,8 +240,6 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'branch_city',
             'stylist_name',  # Add stylist name to fields
             'stylist_id',  # Add stylist_id to fields
-            'stylist_photo',  # Include stylist photo
-
         ]
 
     def get_service_names(self, obj):
@@ -268,27 +264,18 @@ class AppointmentSerializer(serializers.ModelSerializer):
         return obj.appointment_time.strftime('%H:%M')
 
     def get_stylist_name(self, obj):
-        """Fetch stylist name from Staff table instead of Beautician."""
+        # Assuming stylist_id is a field in the Appointment model
         if obj.stylist_id:
             try:
-                return Staff.objects.get(staff=obj.stylist_id).name
-            except Staff.DoesNotExist:
+                stylist = Beautician.objects.get(id=obj.stylist_id)
+                return stylist.name  
+            except Beautician.DoesNotExist:
                 return None
         return None
 
     def get_stylist_id(self, obj):
-        """Return stylist ID from Staff table."""
+        # Return the stylist_id if it exists
         return obj.stylist_id if obj.stylist_id else None
-
-    def get_stylist_photo(self, obj):
-        """Fetch stylist photo from Staff table."""
-        if obj.stylist_id:
-            try:
-                staff = Staff.objects.get(staff=obj.stylist_id)
-                return staff.photo.url if staff.photo else None
-            except Staff.DoesNotExist:
-                return None
-        return None
 
 
 class MessageSerializer(serializers.ModelSerializer):
