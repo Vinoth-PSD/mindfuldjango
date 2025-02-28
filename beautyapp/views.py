@@ -82,6 +82,7 @@ from django.db.models.functions import Length
 from django.db.models import F, Func, Value, FloatField,ExpressionWrapper
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import ACos, Cos, Radians, Sin
+from django.core.mail import send_mail
 
 
 
@@ -483,10 +484,30 @@ class UserViewSet(viewsets.ModelViewSet):
         try:
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid():
-                serializer.save()  # Save the new user
+                user = serializer.save()  # Save the new user
+
+                # Send OTP verification success email
+                email_subject = "Registration Successful"
+                email_message = (
+                    f"Dear {user.name},\n\n"
+                    "Welcome to Mindful Beauty!\n"
+                    "We are delighted to have you on board. Your registration has been successfully completed.\n"
+                    "You can now access your account and explore our services.\n\n"
+                    "Best Regards,\nMindful Beauty Team"
+                )
+
+
+                send_mail(
+                    email_subject,
+                    email_message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],  # Send email to the registered user
+                    fail_silently=False
+                )
+
                 return Response({
                     'status': 'success',
-                    'message': 'User created successfully',
+                    'message': 'User created successfully and email sent',
                     'data': serializer.data
                 }, status=status.HTTP_200_OK)
             else:
@@ -495,7 +516,7 @@ class UserViewSet(viewsets.ModelViewSet):
                     'message': 'User creation failed',
                     'errors': serializer.errors
                 }, status=status.HTTP_200_OK)
-            
+        
         except Exception as e:
             return Response({
                 'status': 'failure',
@@ -1316,7 +1337,7 @@ class ProviderActionAPIView(APIView):
             # Check if the provider has at least 1000 available credits
             if provider.available_credits < 1000:
                 return Response(
-                    {"status": "failure", "message": "You don't have the minimum amount in your wallet to perform this action."},
+                    {"status": "failure", "message": "The minimum wallet amount should be 1000. Please add the amount to the wallet "},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
@@ -1409,14 +1430,41 @@ class DeclineAppointmentMessageAPIView(APIView):
             appointment = Appointment.objects.get(appointment_id=appointment_id)
             message = Message.objects.get(message_id=message_id)
 
+            user = appointment.user  
+
             # Store the message_id in the appointment
             appointment.message = str(message.message_id)  # Store message_id as string
             appointment.status_id = 4  # Set status to 'cancelled'
             appointment.save()
 
+             # Send cancellation email to the user
+            subject = "Your Appointment Has Been Cancelled"
+            email_body = f"""
+            Dear {user.name},
+
+            We regret to inform you that your appointment (ID: {appointment_id}) has been cancelled.
+
+            Reason for cancellation:
+            "{message.text}"
+
+            If you have any questions, please contact us.
+
+            Best regards,
+            Beauty App Team
+            """
+
+            send_mail(
+                subject,
+                email_body,
+                settings.DEFAULT_FROM_EMAIL,  
+                [user.email],  
+                fail_silently=False,
+            )
+
+
             # Return a success response
             return Response(
-                {"status": "success", "message": "Appointment declined and message ID stored successfully"},
+                {"status": "success", "message": "Appointment canceled by provider and email sent to the user"},
                 status=status.HTTP_200_OK
             )
 
