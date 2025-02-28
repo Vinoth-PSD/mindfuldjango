@@ -1716,6 +1716,8 @@ class ModifyAppointmentStatus(APIView):
         appointment_id = request.data.get("appointment_id")
         status_id = request.data.get("status_id")
         stylist_id = request.data.get("stylist_id")
+        freelancer = request.data.get("freelancer", False)  
+
 
         # Validate required appointment_id input
         if not appointment_id:
@@ -1732,11 +1734,12 @@ class ModifyAppointmentStatus(APIView):
             new_status = get_object_or_404(Status, status_id=status_id)
             appointment.status = new_status
 
-        # If stylist_id is provided, update the stylist
-        if stylist_id:
+        # If stylist_id is provided and not a freelancer, update the stylist
+        if stylist_id and not freelancer:
             stylist = get_object_or_404(Staff, staff=stylist_id)
             appointment.stylist = stylist
-
+        elif freelancer:
+            appointment.stylist = None  # Remove stylist if freelancer
         # Save the updated appointment
         appointment.save()
         
@@ -4216,6 +4219,7 @@ class AllAppointmentsListView(APIView):
             payment_status = payment.payment_status if payment else "Not Paid"
             provider_name = appointment.provider.name if appointment.provider else "No Provider"
 
+
             # **Fix for the `NoneType` error**
             if status_name is not None:
                 status_name = status_name.lower()  # Ensure it's lowercase for comparison
@@ -4236,6 +4240,7 @@ class AllAppointmentsListView(APIView):
                 "location": city,
                 "stylist": stylist_name,
                 "stylist_id": stylist_id,
+                "stylist_photo": appointment.stylist.photo.url if appointment.stylist and appointment.stylist.photo else None,
                 "payment_status": payment_status,
                 "provider_id": appointment.provider.provider_id if appointment.provider else None,
                 "provider_name": provider_name
@@ -4537,6 +4542,9 @@ def generate_sales_transaction_pdf(request):
         # Fetch transaction details
         transaction = get_object_or_404(ProviderTransactions, id=id)
         provider = get_object_or_404(ServiceProvider, provider_id=transaction.provider.provider_id)
+
+        address = get_object_or_404(Locations, location_id=provider.address_id)
+
         
         # Prepare transaction data
         invoice_data = {
@@ -4544,6 +4552,8 @@ def generate_sales_transaction_pdf(request):
                 'name': provider.name,
                 'owner_name': provider.owner_name,
                 'phone': provider.phone,
+                'address': f"{address.address_line1}, {address.city}"
+
             },
             'transaction': {
                 'date': transaction.date.strftime("%d-%m-%Y"),
@@ -4601,7 +4611,8 @@ def generate_sales_transaction_pdf(request):
             <div class="section">
                 <strong>Provider Details:</strong><br>
                 {{ invoice.provider.name }} | {{ invoice.provider.phone }}<br>
-                Owner: {{ invoice.provider.owner_name }}
+                Owner: {{ invoice.provider.owner_name }}<br>
+                Address: {{ invoice.provider.address }}
             </div>
         
             <div class="section">
@@ -5022,6 +5033,9 @@ class ProviderTransactionDetailAPIView(APIView):
             transaction = get_object_or_404(ProviderTransactions, id=transaction_id)
             provider = get_object_or_404(ServiceProvider, provider_id=transaction.provider.provider_id)
 
+            address = get_object_or_404(Locations, location_id=provider.address_id)
+
+
             # Prepare response data
             data = {
                 "status": "success",
@@ -5031,6 +5045,8 @@ class ProviderTransactionDetailAPIView(APIView):
                         "name": provider.name,
                         "owner_name": provider.owner_name,
                         "phone": provider.phone,
+                        "address": f"{address.address_line1}, {address.city}"
+
                     },
                     "transaction": {
                         "date": transaction.date.strftime("%d-%m-%Y"),
