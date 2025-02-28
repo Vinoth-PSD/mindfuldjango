@@ -39,6 +39,7 @@ from django.conf import settings
 from django.utils.timezone import now
 import csv
 import traceback
+from django.core.mail import send_mail
 
 
 
@@ -314,7 +315,27 @@ class RegisterServiceProvider(APIView):
         serializer = ServiceProvidersSerializer(data=data)
         if serializer.is_valid():
             # Save the service provider
-            serializer.save()
+            service_provider = serializer.save()
+
+            # Send a confirmation email
+            email_subject = "Welcome to Mindful Beauty!"
+            email_message = (
+                f"Dear {service_provider.name},\n\n"
+                "Congratulations! Your registration as a service provider has been successfully completed.\n"
+                "Your account is currently under review, and you will be notified once approved by our admin team.\n\n"
+                "Best Regards,\nMindful Beauty Team"
+            )
+
+
+            send_mail(
+                email_subject,
+                email_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [service_provider.email],  # Send email to the registered provider
+                fail_silently=False
+            )
+
+
             return Response(
                 {
                     "status": "success",
@@ -2906,6 +2927,24 @@ class UpdateServiceProviderStatus(APIView):
         service_provider.status = new_status
         service_provider.save()
 
+         # ✅ Send email notification if status is set to 'Active'
+        if new_status == "Active":
+            subject = "Your Account Has Been Approved!"
+            email_message = (
+                f"Dear {service_provider.name},\n\n"
+                "We are pleased to inform you that your registration as a service provider has been approved.\n"
+                "You can now log in and start offering your services.\n\n"
+                "Best Regards,\nMindful Beauty Team"
+            )
+
+            send_mail(
+                subject,
+                email_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [service_provider.email],  # Sending to provider's email
+                fail_silently=False,  # Set to False to catch errors
+            )
+
         return Response(
             {
                 "status": "success",
@@ -4969,3 +5008,120 @@ class WalletManagementView(APIView):
                 "status": "error",
                 "message": f"An error occurred: {str(e)}"
             }, status=500)
+        
+#Provider Sales and transaction GET 
+class ProviderTransactionDetailAPIView(APIView):
+    def get(self, request):
+        transaction_id = request.query_params.get('id')
+
+        if not transaction_id:
+            return JsonResponse({"status": "error", "message": "Transaction ID is required"}, status=400)
+
+        try:
+            # Fetch transaction details
+            transaction = get_object_or_404(ProviderTransactions, id=transaction_id)
+            provider = get_object_or_404(ServiceProvider, provider_id=transaction.provider.provider_id)
+
+            # Prepare response data
+            data = {
+                "status": "success",
+                "message": "Transaction details fetched successfully",
+                "data": {
+                    "provider": {
+                        "name": provider.name,
+                        "owner_name": provider.owner_name,
+                        "phone": provider.phone,
+                    },
+                    "transaction": {
+                        "date": transaction.date.strftime("%d-%m-%Y"),
+                        "amount": f"{transaction.amount:.2f}",
+                        "cgst": f"{transaction.cgst:.2f}",
+                        "sgst": f"{transaction.sgst:.2f}",
+                        "total_amount": f"{transaction.total_amount:.2f}",
+                        "payment_type": transaction.payment_type,
+                        "transaction_id": transaction.transaction_id,
+                        "order_id": transaction.order_id,
+                        "status": "Paid",  # Static value
+                        "credits": f"{transaction.amount:.2f}"
+                    }
+                }
+            }
+
+            return JsonResponse(data, status=200)
+
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+
+#Cancel appointment by provider 
+class CancelAppointmentByProviderAPIView(APIView):
+    def post(self, request):
+        # Get the appointment ID and message ID from the request
+        appointment_id = request.data.get('appointment_id')
+        message_id = request.data.get('message_id')
+
+        if not appointment_id or not message_id:
+            return Response(
+                {"status": "failure", "message": "Appointment ID and message ID are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Fetch the appointment and message
+            appointment = Appointment.objects.get(appointment_id=appointment_id)
+            message = Message.objects.get(message_id=message_id)
+
+            user = appointment.user  
+
+            # Store the message_id in the appointment
+            appointment.message = str(message.message_id)  
+            appointment.status_id = 4 # Set status to 'cancelled by provider'
+            appointment.save()
+
+             # Send cancellation email to the user
+            subject = "Your Appointment Has Been Cancelled"
+            email_body = f"""
+            Dear {user.name},
+
+            We regret to inform you that your appointment (ID: {appointment_id}) has been cancelled.
+
+            Reason for cancellation:
+            "{message.text}"
+
+            If you have any questions, please contact us.
+
+            Best regards,
+            Beauty App Team
+            """
+
+            send_mail(
+                subject,
+                email_body,
+                settings.DEFAULT_FROM_EMAIL,  
+                [user.email],  
+                fail_silently=False,
+            )
+
+            # Return a success response
+            return Response(
+                {"status": "success", "message": "Appointment canceled by provider and email sent to the user"},
+                status=status.HTTP_200_OK
+            )
+
+        except Appointment.DoesNotExist:
+            return Response(
+                {"status": "failure", "message": "Appointment not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        except Message.DoesNotExist:
+            return Response(
+                {"status": "failure", "message": "Message not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        except Exception as e:
+            return Response(
+                {"status": "failure", "message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
