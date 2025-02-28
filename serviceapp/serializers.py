@@ -29,6 +29,7 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
             'phone': {'required': True},
             'location': {'required': True},
             'service_type': {'required': True},
+            'provider_name': {'required': True},
         }
 
     def create(self, validated_data):
@@ -68,12 +69,12 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
     #         branch.save()
     #  else:
             # Create a new branch if not found
-    
+     branch_name=''
      if service_type == 1:
          branch_name = 'Main Branch'
-     elif service_type == 2:
+     elif service_type == 2 and provider_name:
          branch_name = provider_name  
-
+    
      branch = Branches.objects.create(location=location, branch_name=branch_name)
 
  
