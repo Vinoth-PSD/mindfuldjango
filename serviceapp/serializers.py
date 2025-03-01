@@ -87,10 +87,17 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
  
      # Store the provider_id in the Branches table
      if service_provider.service_type==2:
-
-       branch_name= service_provider.name 
+        
+        print(service_provider.name)
+        
+        branch_name= service_provider.name 
+        branch.branch_name=branch_name
+        branch.save()
+        print(branch_name)
+    
+     print(branch_name)
           
-     branch.branch_name=branch_name
+     #branch.branch_name=branch_name
      branch.provider_id = service_provider.provider_id
      branch.save()
  
