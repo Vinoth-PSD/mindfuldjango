@@ -1788,13 +1788,10 @@ class ModifyAppointmentStatus(APIView):
                     provider.available_credits = current_credits - used_credits
                     provider.save()
                 else:
-                    {"status": "success", "message": "In sufficient balace to complete the appointment"},
-            status=status.HTTP_200_OK
+                     Response({"status": "success", "message": "In sufficient balace to complete the appointment"},status=status.HTTP_200_OK)
         
         return Response(
-            {"status": "success", "message": "Appointment status updated successfully."},
-            status=status.HTTP_200_OK
-        )
+            {"status": "success", "message": "Appointment status updated successfully."},status=status.HTTP_200_OK)
 
         # total_credits = (
         #         ProviderTransactions.objects.filter(provider=appointment.provider_id, status="Success")
