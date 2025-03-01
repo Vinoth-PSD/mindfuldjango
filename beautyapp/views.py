@@ -462,7 +462,7 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
-    def list(self, request, args, *kwargs):
+    def list(self, request, *args, **kwargs):  
         try:
             queryset = self.get_queryset()
             serializer = self.get_serializer(queryset, many=True)
@@ -480,7 +480,7 @@ class UserViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
     
     # POST method (create)
-    def create(self, request, args, *kwargs):
+    def create(self, request, *args, **kwargs):  
         try:
             serializer = self.get_serializer(data=request.data)
             if serializer.is_valid():
@@ -1354,6 +1354,13 @@ class ProviderActionAPIView(APIView):
 
             # Fetch the appointment
             appointment = Appointment.objects.get(appointment_id=appointment_id)
+
+            # Prevent accepting a canceled appointment
+            if appointment.status_id == 4:
+                return Response(
+                    {"status": "error", "message": "This appointment has been canceled and cannot be accepted."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
             # Fetch the service provider from the appointment
             provider = ServiceProvider.objects.get(provider_id=appointment.provider_id)
