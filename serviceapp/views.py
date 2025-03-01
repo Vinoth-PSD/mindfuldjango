@@ -1770,6 +1770,9 @@ class ModifyAppointmentStatus(APIView):
                     # Deduct credits from provider balance
                     provider.available_credits = current_credits - used_credits
                     provider.save()
+                    appointment.status_id=status_id
+                    appointment.used_credits=used_credits
+                    appointment.save()
                 else:
                     return Response(
                         {"status": "failure", "message": "Insufficient balance to complete the appointment"},
@@ -1784,6 +1787,7 @@ class ModifyAppointmentStatus(APIView):
             appointment.stylist = None  # Remove stylist if freelancer
 
         # Save the updated appointment
+        appointment.status_id=status_id
         appointment.save()
 
         return Response(
