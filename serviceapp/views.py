@@ -4522,20 +4522,65 @@ class AllSalesTransactionAPIView(APIView, CustomPagination):
 
 
 #Get Coupon List
+# class CouponListAPIView(generics.ListAPIView):
+#     queryset = Coupon.objects.filter(is_deleted=False).order_by('-id')  # Exclude deleted coupons
+#     serializer_class = CouponSerializer
+#     pagination_class = CustomPagination  # Enable pagination
+
+#     def get(self, request, *args, **kwargs):
+#         coupons = self.get_queryset()
+
+#         # Optional filters for status or month
+#         status_filter = request.query_params.get('status', '0')  # Default to '0' (fetch all)
+#         month_filter = request.query_params.get('month')
+
+#         if status_filter and status_filter != '0':  # Apply filter only if status is not '0'
+#             coupons = coupons.filter(status=status_filter)
+
+#         if month_filter:
+#             try:
+#                 month_number = datetime.strptime(month_filter, "%B").month
+#                 coupons = coupons.filter(valid_from__month=month_number)
+#             except ValueError:
+#                 return Response(
+#                     {"status": "failure", "message": "Invalid month format. Use full month name."},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+
+#         # Apply pagination
+#         page = self.paginate_queryset(coupons)
+#         if page is not None:
+#             serializer = self.get_serializer(page, many=True)
+#             return self.get_paginated_response({
+#                 "status": "success",
+#                 "message": "Coupons fetched successfully",
+#                 "data": serializer.data
+#             })
+
+#         serializer = self.get_serializer(coupons, many=True)
+#         return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
+
+#Get Coupon List
+
 class CouponListAPIView(generics.ListAPIView):
     queryset = Coupon.objects.filter(is_deleted=False).order_by('-id')  # Exclude deleted coupons
     serializer_class = CouponSerializer
     pagination_class = CustomPagination  # Enable pagination
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request, args, *kwargs):
         coupons = self.get_queryset()
 
         # Optional filters for status or month
         status_filter = request.query_params.get('status', '0')  # Default to '0' (fetch all)
         month_filter = request.query_params.get('month')
 
-        if status_filter and status_filter != '0':  # Apply filter only if status is not '0'
-            coupons = coupons.filter(status=status_filter)
+        if status_filter:
+            if status_filter == '1':  # Active
+                coupons = coupons.filter(status=1, valid_until__gte=now())  # Exclude expired
+            elif status_filter == '2':  # Inactive
+                coupons = coupons.filter(status=2)
+            elif status_filter.lower() == 'expired':  # Expired coupons
+                coupons = coupons.filter(status=1, valid_until__lt=now())  # Only expired
 
         if month_filter:
             try:
