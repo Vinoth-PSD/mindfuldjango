@@ -191,6 +191,10 @@ class SalonDetailsSerializer(serializers.ModelSerializer):
                 latitude=latitude if latitude is not None else 0.0,
                 longitude=longitude if longitude is not None else 0.0
             )
+        
+        # ✅ Store the image in ServiceProvider table
+        if image:
+          instance.image_url = image
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -294,6 +298,10 @@ class FreelancerDetailsSerializer(serializers.ModelSerializer):
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
+        # ✅ Store the image in ServiceProvider table
+        if image:
+         instance.image_url = image
         
         instance.save()
 
