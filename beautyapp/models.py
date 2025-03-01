@@ -686,56 +686,93 @@ SELECT
 
     
         
-    def get_beauticians_for_provider(self, provider_id , branch_id):
-      role_id = 5  # Define the role_id directly
+    # def get_beauticians_for_provider(self, provider_id , branch_id):
+    #   role_id = 5  # Define the role_id directly
+    # #   query = """
+    # #   SELECT 
+    # #       s.staff AS beautician_id,
+    # #       s.name AS beautician_name,
+    # #       s.role_id,
+    # #       s.years_of_experience,
+    # #       sp.rating,
+    # #       sp.image_url AS profile_image
+    # #   FROM 
+    # #       beautyapp_staff s
+    # #   JOIN 
+    # #       serviceproviders sp ON s.provider_id = sp.provider_id
+    # #   WHERE 
+    # #       s.provider_id = %s AND s.role_id = %s
+    # #   """
     #   query = """
-    #   SELECT 
-    #       s.staff AS beautician_id,
-    #       s.name AS beautician_name,
-    #       s.role_id,
-    #       s.years_of_experience,
-    #       sp.rating,
-    #       sp.image_url AS profile_image
-    #   FROM 
-    #       beautyapp_staff s
-    #   JOIN 
-    #       serviceproviders sp ON s.provider_id = sp.provider_id
-    #   WHERE 
-    #       s.provider_id = %s AND s.role_id = %s
-    #   """
-      query = """
-        SELECT 
-            s.staff AS beautician_id,
-            s.name AS beautician_name,
-            s.role_id,
-            s.years_of_experience,
-            sp.rating,
-            sp.image_url AS profile_image
-        FROM 
-            beautyapp_staff s
-        JOIN 
-            branches br ON br.branch_id = br.branch_id
-        LEFT JOIN 
-        serviceproviders sp ON s.provider_id = sp.provider_id
-        WHERE 
-            br.branch_id = %s AND s.role_id = %s
-        """
-      params = [branch_id, role_id]
-      with connection.cursor() as cursor:
-          cursor.execute(query, params)
-          results = cursor.fetchall()
+    #     SELECT 
+    #         s.staff AS beautician_id,
+    #         s.name AS beautician_name,
+    #         s.role_id,
+    #         s.years_of_experience,
+    #         sp.rating,
+    #         sp.image_url AS profile_image
+    #     FROM 
+    #         beautyapp_staff s
+    #     JOIN 
+    #         branches br ON br.branch_id = br.branch_id
+    #     LEFT JOIN 
+    #     serviceproviders sp ON s.provider_id = sp.provider_id
+    #     WHERE 
+    #         br.branch_id = %s AND s.role_id = %s
+    #     """
+    #   params = [branch_id, role_id]
+    #   with connection.cursor() as cursor:
+    #       cursor.execute(query, params)
+    #       results = cursor.fetchall()
   
-          columns = [col[0] for col in cursor.description]
-          # Prepare the result by zipping columns with row data
-          data = [dict(zip(columns, row)) for row in results]
+    #       columns = [col[0] for col in cursor.description]
+    #       # Prepare the result by zipping columns with row data
+    #       data = [dict(zip(columns, row)) for row in results]
   
-      # Build the correct image URL using BASE_URL and MEDIA_URL from settings
-      for row in data:
-          profile_image = row.get('profile_image')
-          if profile_image:
-              row['profile_image'] = f"{settings.MEDIA_URL}{profile_image}"
+    #   # Build the correct image URL using BASE_URL and MEDIA_URL from settings
+    #   for row in data:
+    #       profile_image = row.get('profile_image')
+    #       if profile_image:
+    #           row['profile_image'] = f"{settings.MEDIA_URL}{profile_image}"
   
-      return data
+    #   return data
+    def get_beauticians_for_provider(self, provider_id, branch_id):
+     role_id = 5  # Stylist role ID
+ 
+     query = """
+         SELECT 
+             s.staff AS beautician_id,
+             s.name AS beautician_name,
+             s.role_id,
+             s.years_of_experience,
+             sp.rating,
+             sp.image_url AS profile_image
+         FROM 
+             beautyapp_staff s
+         JOIN 
+             branches br ON s.provider_id = br.provider_id  -- Ensure provider ID matches
+         LEFT JOIN 
+             serviceproviders sp ON s.provider_id = sp.provider_id
+         WHERE 
+             br.branch_id = %s AND s.provider_id = %s AND s.role_id = %s
+     """
+     
+     params = [branch_id, provider_id, role_id]
+     
+     with connection.cursor() as cursor:
+         cursor.execute(query, params)
+         results = cursor.fetchall()
+ 
+         columns = [col[0] for col in cursor.description]
+         data = [dict(zip(columns, row)) for row in results]
+ 
+     # Format profile image URL
+     for row in data:
+         profile_image = row.get('profile_image')
+         if profile_image:
+             row['profile_image'] = f"{settings.MEDIA_URL}{profile_image}"
+ 
+     return data
     
     def get_provider_photos(self, provider_id,image_type):
         query = """
