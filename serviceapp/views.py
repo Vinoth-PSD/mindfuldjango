@@ -4560,14 +4560,13 @@ class AllSalesTransactionAPIView(APIView, CustomPagination):
 #         serializer = self.get_serializer(coupons, many=True)
 #         return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
 
-#Get Coupon List
-
+# Get Coupon List
 class CouponListAPIView(generics.ListAPIView):
     queryset = Coupon.objects.filter(is_deleted=False).order_by('-id')  # Exclude deleted coupons
     serializer_class = CouponSerializer
     pagination_class = CustomPagination  # Enable pagination
 
-    def get(self, request, args, *kwargs):
+    def list(self, request, *args, **kwargs):  # Change 'get' to 'list'
         coupons = self.get_queryset()
 
         # Optional filters for status or month
