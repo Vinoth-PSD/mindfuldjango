@@ -18,6 +18,7 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
     longitude = serializers.FloatField(required=False, allow_null=True, write_only=True)
     provider_id = serializers.IntegerField(read_only=True)
 
+
     class Meta:
         model = ServiceProvider
         fields = [
@@ -37,6 +38,8 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
      longitude = validated_data.pop('longitude', None)
      service_type = validated_data.get('service_type') 
      provider_name = validated_data.get('name') 
+     phone = validated_data.get('phone')  
+
  
      # Check if location already exists
      location = Locations.objects.filter(city=location_name).order_by('location_id').first()
@@ -75,7 +78,7 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
     #  elif service_type == 2  and provider_name:
     #      branch_name = provider_name  
 
-     branch = Branches.objects.create(location=location, branch_name=branch_name)
+     branch = Branches.objects.create(location=location, branch_name=branch_name, phone=phone)
 
  
      # Assign the branch and address ID
@@ -87,17 +90,10 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
  
      # Store the provider_id in the Branches table
      if service_provider.service_type==2:
-        
-        print(service_provider.name)
-        
-        branch_name= service_provider.name 
-        branch.branch_name=branch_name
-        branch.save()
-        print(branch_name)
-    
-     print(branch_name)
+
+       branch_name= service_provider.name 
           
-     #branch.branch_name=branch_name
+     branch.branch_name=branch_name
      branch.provider_id = service_provider.provider_id
      branch.save()
  
@@ -127,15 +123,18 @@ class SalonDetailsSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, data):
-        print(8541259874)
-        # Check for required fields regardless of whether the update is partial or not
-        required_fields = ['owner_name', 'email', 'phone','name','image_url']
-        for field in required_fields:
-            if field not in data or not data[field]:
-                # If the field is not provided or is empty, check if it exists in the current instance
-                if not getattr(self.instance, field, None):
-                    raise serializers.ValidationError({field: f"{field} is required."})
-                return data
+     print(8541259874)  
+     required_fields = ['owner_name', 'email', 'phone', 'name', 'image_url']
+     
+     for field in required_fields:
+         if field not in data or not data[field]:
+             # If instance exists, use existing data; otherwise, raise an error
+             if self.instance and getattr(self.instance, field, None):
+                 continue  # Skip validation for existing instance fields
+             raise serializers.ValidationError({field: f"{field} is required."})
+     
+     return data  # ✅ Always return the validated data
+
 
     def create(self, validated_data):
         """Ensure 'available_slots' is always set with default values if not provided."""
@@ -152,6 +151,8 @@ class SalonDetailsSerializer(serializers.ModelSerializer):
         saloon_address= validated_data.pop('saloon_address')
         latitude = validated_data.pop('latitude', None)
         longitude = validated_data.pop('longitude', None)
+        image = validated_data.pop('image_url', None)  # Extract image
+
 
         service_provider = None
 
@@ -203,8 +204,14 @@ class SalonDetailsSerializer(serializers.ModelSerializer):
         # )
 
         #print(f"Updating location 1234 : {location.location_id} - City 1 : {saloon_location}, Address 1: {saloon_address}")
+
+         # Store image in Branches table (Creating or updating)
+        branch, created = Branches.objects.get_or_create(provider=instance, location=location)
+        if image:  
+            branch.logo = image  # Store the image in the logo field
+            branch.save()
     
-        return instance
+        return instance  # ✅ Ensure instance is always returned
 
 
 class FreelancerDetailsSerializer(serializers.ModelSerializer):
@@ -254,6 +261,7 @@ class FreelancerDetailsSerializer(serializers.ModelSerializer):
         home_address= validated_data.pop('home_address')
         latitude = validated_data.pop('latitude', None)
         longitude = validated_data.pop('longitude', None)
+        image = validated_data.pop('image_url', None)  
         service_provider = None
 
         # Check if address_id is NULL in ServiceProvider
@@ -297,7 +305,12 @@ class FreelancerDetailsSerializer(serializers.ModelSerializer):
 
         #print(f"Updating location 1234 : {location.location_id} - City 1 : {saloon_location}, Address 1: {saloon_address}")
     
-        return instance
+        branch, created = Branches.objects.get_or_create(provider=instance, location=location)
+        if image:  
+            branch.logo = image  # Store the image in the logo field
+            branch.save()
+    
+        return instance  # ✅ Ensure instance is always returned
 
 
 
@@ -697,9 +710,6 @@ class AddPackageServiceSerializer(serializers.ModelSerializer):
         data['package_name'] = instance.service_name  
         data['branch_id'] = instance.branch_id  
         return data
-
-
-
 
 
 class PackagesSerializer(serializers.ModelSerializer):
