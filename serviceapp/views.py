@@ -1740,7 +1740,6 @@ class ModifyAppointmentStatus(APIView):
         stylist_id = request.data.get("stylist_id")
         freelancer = request.data.get("freelancer", False)  
 
-
         # Validate required appointment_id input
         if not appointment_id:
             return Response(
@@ -1751,47 +1750,46 @@ class ModifyAppointmentStatus(APIView):
         # Fetch the appointment
         appointment = get_object_or_404(Appointment, appointment_id=appointment_id)
 
-        # Only update status if status_id is provided
-        if status_id:
-            new_status = get_object_or_404(Status, status_id=status_id)
-            appointment.status = new_status
+        if status_id == 3:
+            provider = get_object_or_404(ServiceProvider, provider_id=appointment.provider_id)
+            current_credits = Decimal(provider.available_credits)
 
-        # If stylist_id is provided and not a freelancer, update the stylist
+            # Fetch payment for the given appointment
+            payment = Payment.objects.filter(appointment_id=appointment_id).first()
+            if payment and payment.grand_total is not None:
+                grand_total = Decimal(payment.grand_total)
+
+                # Calculate used credits (30% of grand total)
+                used_credits = round(grand_total * Decimal(0.30))
+
+                # Ensure sufficient balance
+                if current_credits >= used_credits:
+                    payment.credit_points = used_credits
+                    payment.save()
+
+                    # Deduct credits from provider balance
+                    provider.available_credits = current_credits - used_credits
+                    provider.save()
+                else:
+                    return Response(
+                        {"status": "failure", "message": "Insufficient balance to complete the appointment"},
+                        status=status.HTTP_400_BAD_REQUEST  # Changed status to 400 for better clarity
+                    )
+
+        # Handle stylist assignment
         if stylist_id and not freelancer:
             stylist = get_object_or_404(Staff, staff=stylist_id)
             appointment.stylist = stylist
         elif freelancer:
             appointment.stylist = None  # Remove stylist if freelancer
+
         # Save the updated appointment
         appointment.save()
-        
-        if status_id==3:
-            provider = get_object_or_404(ServiceProvider, provider_id=appointment.provider_id)
 
-            current_credits = Decimal(provider.available_credits)
-
-            # Fetch payment for the given appointment
-            payment = Payment.objects.filter(appointment_id=appointment.appointment_id).first()
-
-            if payment and payment.grand_total is not None:
-                grand_total = Decimal(payment.grand_total)
-
-                # Calculate used credits as 30% of grand_total
-                used_credits = round(grand_total * Decimal(0.30))
-
-                payment_same = get_object_or_404(Payment, appointment_id=appointment_id)
-                if current_credits >= used_credits:
-                    payment_same.credit_points=used_credits
-                    payment_same.save()
-
-                    # Deduct used credits from available credits
-                    provider.available_credits = current_credits - used_credits
-                    provider.save()
-                else:
-                     Response({"status": "success", "message": "In sufficient balace to complete the appointment"},status=status.HTTP_200_OK)
-        
         return Response(
-            {"status": "success", "message": "Appointment status updated successfully."},status=status.HTTP_200_OK)
+            {"status": "success", "message": "Appointment status updated successfully."},
+            status=status.HTTP_200_OK
+        )
 
         # total_credits = (
         #         ProviderTransactions.objects.filter(provider=appointment.provider_id, status="Success")
