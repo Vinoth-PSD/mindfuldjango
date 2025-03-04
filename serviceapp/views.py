@@ -1618,11 +1618,11 @@ class AppointmentListView(APIView):
             appointments = Appointment.objects.filter(
                 provider_id=provider_id,
                 status__status_id=status_filter
-            ).select_related('branch__location').order_by('-appointment_id')
+            ).exclude(status__status_id=0).select_related('branch__location').order_by('-appointment_id')
         else:
             appointments = Appointment.objects.filter(
                 provider_id=provider_id
-            ).select_related('branch__location').order_by('-appointment_id')
+            ).exclude(status__status_id=0).select_related('branch__location').order_by('-appointment_id')
 
         if search_query:
             # Get matching service IDs
