@@ -5119,6 +5119,7 @@ class DownloadAllSalesTransactionCSVAPIView(APIView):
 
         return response
 
+
 #Wallet Management 
 class ProviderWalletManagementView(APIView):
     pagination_class = CustomPagination  # Use custom pagination
@@ -5127,55 +5128,57 @@ class ProviderWalletManagementView(APIView):
         service_type_id = request.query_params.get('service_type_id')
         search_query = request.query_params.get('search', '').strip()
 
-        providers = ServiceProvider.objects.filter(is_deleted=False).select_related('service_type').order_by('-provider_id')
+        # Fetch all providers with related fields to avoid multiple queries
+        providers = ServiceProvider.objects.filter(is_deleted=False).select_related('service_type')
 
         if service_type_id and service_type_id != "0":
             providers = providers.filter(service_type_id=service_type_id)
 
+        provider_ids = providers.values_list('provider_id', flat=True)
+
+        # Fetch all transactions in a single query
+        transactions = ProviderTransactions.objects.filter(
+            provider_id__in=provider_ids, status="Success"
+        ).values('provider_id').annotate(total_credits=Sum('total_amount'))
+
+        transactions_dict = {t['provider_id']: t['total_credits'] or Decimal(0) for t in transactions}
+
+        # Fetch used credits in a single query
+        used_credits_data = (
+            Appointment.objects.filter(provider_id__in=provider_ids, status__status_id=3)
+            .values('provider_id')
+            .annotate(total_used=Sum('payment__grand_total'))
+        )
+
+        used_credits_dict = {uc['provider_id']: round(Decimal(uc['total_used']) * Decimal(0.30)) for uc in used_credits_data}
+
+        # Fetch branches with city in a single query
+        branches = Branches.objects.select_related('location').filter(provider_id__in=provider_ids).values('provider_id', 'location__city')
+        branch_dict = {b['provider_id']: b['location__city'] for b in branches}
+
         provider_list = []
-        provider_updates = []  # Collect updates to avoid multiple saves
+        provider_updates = []  # Collect updates for bulk update
 
         for provider in providers:
-            total_credits = (
-                ProviderTransactions.objects.filter(provider=provider, status="Success")
-                .aggregate(Sum('total_amount'))['total_amount__sum']
-            ) or Decimal(0)
+            provider_id = provider.provider_id
+            total_credits = transactions_dict.get(provider_id, Decimal(0))
+            used_credits = used_credits_dict.get(provider_id, Decimal(0))
+            available_credits = total_credits - used_credits
 
-            available_credits = Decimal(provider.available_credits)
-            used_credits = Decimal(0)
-
-            with transaction.atomic():
-                appointments_with_status_3 = Appointment.objects.filter(provider=provider, status__status_id=3)
-
-                total_grand_total = Decimal(0)
-                for appointment in appointments_with_status_3:
-                    payment = Payment.objects.filter(appointment=appointment).first()
-                    if payment and payment.grand_total is not None:
-                        total_grand_total += Decimal(payment.grand_total)
-
-                used_credits = round(total_grand_total * Decimal(0.30))
-                available_credits = total_credits - used_credits
-
-                # Store updates instead of calling save() in each iteration
-                provider_updates.append((provider.provider_id, available_credits))
-
-            # Fetch provider's city
-            city = None
-            branch = Branches.objects.filter(provider=provider).first()
-            if branch and branch.location:
-                city = branch.location.city
+            # Store updates instead of calling save() in each iteration
+            provider_updates.append(ServiceProvider(provider_id=provider_id, available_credits=available_credits))
 
             service_type_id = getattr(provider.service_type, 'service_type_id', None)
             service_type_name = getattr(provider.service_type, 'type_name', None)
 
             provider_data = {
-                'provider_id': provider.provider_id,
+                'provider_id': provider_id,
                 'provider_name': provider.name,
                 'phone': provider.phone,
                 'total_credits': int(total_credits),
                 'available_credits': int(available_credits),
                 'used_credits': int(used_credits),
-                'city': city,
+                'city': branch_dict.get(provider_id),
                 'service_type_id': service_type_id,
                 'service_type_name': service_type_name,
             }
@@ -5183,8 +5186,8 @@ class ProviderWalletManagementView(APIView):
             provider_list.append(provider_data)
 
         # Bulk update providers to optimize DB performance
-        for provider_id, updated_credits in provider_updates:
-            ServiceProvider.objects.filter(provider_id=provider_id).update(available_credits=updated_credits)
+        if provider_updates:
+            ServiceProvider.objects.bulk_update(provider_updates, ['available_credits'])
 
         # Search filter
         if search_query:
