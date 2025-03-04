@@ -23,7 +23,7 @@ from .views import AvailableSlotsViewSet
 from .views import ReviewViewSet
 from .views import CouponAPIView, VerifyCouponAPIView
 from .views import ServiceFAQViewSet
-from .views import AddToCartAPIView,AddPaymentAPIView,OTPVerificationAPIView,BookingListAPIView,ProviderActionAPIView,AppointmentStatusAPIView,DeclineAppointmentMessageAPIView, MessageViewSet,FrequentlyUsedServicesAPIView,CallbackRequestCreateOrUpdateAPIView,NewsletterSubscriptionAPIView,CityViewSet,ProvidersReviewViewSet,UserBookingsAPIView,user_details,ContactFormView,RecommendedProvidersView
+from .views import AddToCartAPIView,AddPaymentAPIView,OTPVerificationAPIView,BookingListAPIView,ProviderActionAPIView,AppointmentStatusAPIView,DeclineAppointmentMessageAPIView, MessageViewSet,FrequentlyUsedServicesAPIView,CallbackRequestCreateOrUpdateAPIView,NewsletterSubscriptionAPIView,CityViewSet,ProvidersReviewViewSet,UserBookingsAPIView,user_details,ContactFormView,RecommendedProvidersView,CancelBookingAPIView
 
 router = DefaultRouter()
 router.register(r'service-providers', ServiceProviderViewSet, basename='serviceprovider')
@@ -71,10 +71,7 @@ urlpatterns = [
     path('my-profile/', user_details, name='user_details'),
     path('contact/', ContactFormView.as_view(), name='contact_form'),
     path('recommended-providers/', RecommendedProvidersView.as_view(), name='recommended-providers'),
-
-
-
-
+    path('cancel-booking/', CancelBookingAPIView.as_view(), name='cancel-booking'),
 
 
 ]

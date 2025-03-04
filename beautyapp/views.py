@@ -84,7 +84,7 @@ from django.db.models.expressions import RawSQL
 from django.db.models.functions import ACos, Cos, Radians, Sin
 from django.core.mail import send_mail
 from django.utils.html import format_html
-
+from django.db.models import DecimalField, Sum
 
 
 class LoginViewSet(viewsets.ModelViewSet):
@@ -1329,8 +1329,6 @@ class ProviderActionAPIView(APIView):
         stylist_id = request.data.get('stylist_id') 
         freelancer = request.data.get('freelancer', False) 
 
-
-        # Validate required fields
         if not appointment_id or action_id is None:
             return Response(
                 {"status": "error", "message": "Appointment ID and action_id are required"},
@@ -1338,13 +1336,11 @@ class ProviderActionAPIView(APIView):
             )
 
         try:
-            # Define the mapping for action_id to actions
             action_mapping = {
                 1: "accept",
                 2: "decline"
             }
 
-            # Check if the provided action_id is valid
             action = action_mapping.get(action_id)
             if not action:
                 return Response(
@@ -1352,42 +1348,49 @@ class ProviderActionAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Fetch the appointment
             appointment = Appointment.objects.get(appointment_id=appointment_id)
 
-            # Prevent accepting a canceled appointment
             if appointment.status_id == 4:
                 return Response(
                     {"status": "error", "message": "This appointment has been canceled and cannot be accepted."},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            # Fetch the service provider from the appointment
             provider = ServiceProvider.objects.get(provider_id=appointment.provider_id)
 
-            # Check if the provider has at least 1000 available credits
             if provider.available_credits < 1000:
                 return Response(
-                    {"status": "failure", "message": "The minimum wallet amount should be 1000. Please add the amount to the wallet "},
+                    {"status": "failure", "message": "The minimum wallet amount should be 1000. Please add the amount to the wallet."},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            # Handle actions based on action_id
+            service_ids = appointment.service_id_new.split(",")  
+            total_price = Services.objects.filter(service_id__in=service_ids, is_deleted=False).aggregate(
+                total=Sum(Cast("price", output_field=DecimalField()))
+            )["total"] or 0  
+
+            required_credits = total_price * 0.3
+
+            if provider.available_credits < required_credits:
+                return Response(
+                    {
+                        "status": "failure",
+                        "message": f"Insufficient wallet balance"
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
             if action == "accept":
-                appointment.status_id = 1  # 'scheduled'
+                appointment.status_id = 1  
                 
-                # Generate a dynamic 4-digit OTP
-                otp = "1234" 
-                # otp = str(random.randint(1000, 9999))
-                appointment.otp = otp  # Assign OTP to appointment
+                otp = "1234"  
+                appointment.otp = otp
                 
-                # Assign stylist_id if provided
                 if not freelancer and stylist_id:
                     appointment.stylist_id = stylist_id
 
                 appointment.save()
 
-                # Fetch the user's phone number
                 user = User.objects.get(user_id=appointment.user_id)
                 user_phone = user.phone
 
@@ -1399,18 +1402,18 @@ class ProviderActionAPIView(APIView):
                     {
                         "status": "success",
                         "message": "Appointment accepted and scheduled",
-                        "otp": otp,  # Send OTP in response (optional)
+                        "otp": otp,
                         "stylist_id": stylist_id or "No stylist assigned",
-                        "sms_response": sms_response  # Include SMS API response
+                        "sms_response": sms_response
                     },
                     status=status.HTTP_200_OK
                 )
 
             elif action == "decline":
-                appointment.status_id = 4  # 'cancelled'
-                appointment.otp = None  # No OTP needed for decline
+                appointment.status_id = 4  # Canceled
+                appointment.otp = None  
                 appointment.save()
-                
+
                 return Response(
                     {
                         "status": "success",
@@ -2035,3 +2038,40 @@ class MindfulBeautySendSMS:
         credit_url = f"{self.url}/Credit-Balance/?token={self.token}"
         response = requests.get(credit_url)
         return response.text
+    
+
+#Cancel Booking 
+class CancelBookingAPIView(APIView):
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        appointment_id = request.data.get('appointment_id')
+        reason = request.data.get('reason')
+
+        if not user_id or not appointment_id or not reason:
+            return Response({"error": "User ID, Appointment ID, and Reason are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            appointment = Appointment.objects.get(appointment_id=appointment_id, user_id=user_id)
+
+            # Convert appointment datetime to timezone-aware
+            appointment_datetime = timezone.make_aware(
+                timezone.datetime.combine(appointment.appointment_date, appointment.appointment_time),
+                timezone.get_current_timezone()
+            )
+
+            # Calculate time difference correctly
+            now = timezone.now()
+            time_difference = appointment_datetime - now
+
+            if time_difference < timedelta(hours=5):
+                return Response({"error": "Cancellation is only allowed up to 5 hours before the appointment time."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Update appointment status to 'Cancelled' and store reason
+            appointment.status_id = 4  
+            appointment.reason = reason
+            appointment.save()
+
+            return Response({"message": "Appointment cancelled successfully."}, status=status.HTTP_200_OK)
+
+        except Appointment.DoesNotExist:
+            return Response({"error": "Appointment not found."}, status=status.HTTP_404_NOT_FOUND)

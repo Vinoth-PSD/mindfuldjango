@@ -6,6 +6,7 @@ from django.db.models import F, Value
 from django.conf import settings
 from django.db import connection
 from django.utils.timezone import now
+from .storages import AzureMediaStorage
 
 
 class Login(models.Model):
@@ -297,6 +298,8 @@ class Staff(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     phone = models.CharField(max_length=15, blank=True, null=True) 
     otp = models.IntegerField(blank=True, null=True)  
+    photo = models.ImageField(upload_to='staff_photos/', storage=AzureMediaStorage(),null=True, blank=True)
+
 
 
 @staticmethod
@@ -358,7 +361,6 @@ class Subcategory(models.Model):
 class Meta:
         managed=False
         db_table = 'beautyapp_subcategory'
-
 
 
 class Serviceprovidertype(models.Model):
@@ -1074,7 +1076,8 @@ class Appointment(models.Model):
     quantity = models.TextField() 
     message = models.CharField(max_length=255, null=True, blank=True)  
     stylist = models.ForeignKey('Staff', on_delete=models.SET_NULL, null=True, blank=True, default=None) 
-    used_credits = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # New Field
+    used_credits = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  
+    reason = models.CharField(max_length=255, null=True, blank=True)  
  
 
     
