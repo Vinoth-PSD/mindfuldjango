@@ -84,7 +84,7 @@ from django.db.models.expressions import RawSQL
 from django.db.models.functions import ACos, Cos, Radians, Sin
 from django.core.mail import send_mail
 from django.utils.html import format_html
-from django.db.models import DecimalField, Sum
+from django.db.models import DecimalField, F, Sum
 
 
 class LoginViewSet(viewsets.ModelViewSet):
@@ -1326,8 +1326,9 @@ class ProviderActionAPIView(APIView):
     def post(self, request):
         appointment_id = request.data.get('appointment_id')
         action_id = request.data.get('action_id')
-        stylist_id = request.data.get('stylist_id') 
-        freelancer = request.data.get('freelancer', False) 
+        stylist_id = request.data.get('stylist_id')
+        freelancer = request.data.get('freelancer', False)
+        service_ids = request.data.get('service_ids', [])  # Ensure service_ids is retrieved
 
         if not appointment_id or action_id is None:
             return Response(
@@ -1335,13 +1336,16 @@ class ProviderActionAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            action_mapping = {
-                1: "accept",
-                2: "decline"
-            }
+        if not isinstance(service_ids, list):
+            return Response(
+                {"status": "error", "message": "Service IDs should be a list"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        try:
+            action_mapping = {1: "accept", 2: "decline"}
             action = action_mapping.get(action_id)
+
             if not action:
                 return Response(
                     {"status": "error", "message": "Invalid action_id provided"},
@@ -1364,28 +1368,27 @@ class ProviderActionAPIView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            service_ids = appointment.service_id_new.split(",")  
-            total_price = Services.objects.filter(service_id__in=service_ids, is_deleted=False).aggregate(
-                total=Sum(Cast("price", output_field=DecimalField()))
-            )["total"] or 0  
+            # Convert service IDs to integers
+            service_ids = [int(sid) for sid in service_ids if str(sid).isdigit()]
 
-            required_credits = total_price * 0.3
+            # Calculate total price correctly
+            total_price = Services.objects.filter(service_id__in=service_ids, is_deleted=False).aggregate(
+                total=Sum(F("price"))
+            )["total"] or Decimal("0.00")
+
+            required_credits = total_price * Decimal("0.3")
 
             if provider.available_credits < required_credits:
                 return Response(
-                    {
-                        "status": "failure",
-                        "message": f"Insufficient wallet balance"
-                    },
+                    {"status": "failure", "message": "Insufficient wallet balance"},
                     status=status.HTTP_403_FORBIDDEN
                 )
 
             if action == "accept":
-                appointment.status_id = 1  
-                
+                appointment.status_id = 1
                 otp = "1234"  
                 appointment.otp = otp
-                
+
                 if not freelancer and stylist_id:
                     appointment.stylist_id = stylist_id
 
@@ -1410,15 +1413,12 @@ class ProviderActionAPIView(APIView):
                 )
 
             elif action == "decline":
-                appointment.status_id = 4  # Canceled
-                appointment.otp = None  
+                appointment.status_id = 4
+                appointment.otp = None
                 appointment.save()
 
                 return Response(
-                    {
-                        "status": "success",
-                        "message": f"Appointment {action}d successfully"
-                    },
+                    {"status": "success", "message": f"Appointment {action}d successfully"},
                     status=status.HTTP_200_OK
                 )
 
