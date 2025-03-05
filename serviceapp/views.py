@@ -1709,13 +1709,17 @@ class AppointmentListView(APIView):
             # Fetch payment status for the appointment
             payment_status = payment.payment_status if payment else "Not Paid"
 
+            # Safely fetch user details
+            user_name = appointment.user.name if appointment.user else "Unknown"
+            user_phone = appointment.user.phone if appointment.user else "Unknown"
+            
             # Append serialized data
             data.append({
                 "id": appointment.appointment_id,
                 "date": formatted_date,  
                 "time": formatted_time,  
-                "name": appointment.user.name,
-                "phone": appointment.user.phone,
+                "name": user_name,
+                "phone": user_phone,
                 "services": service_details,  # Array of service details
                 "amount": total_amount, 
                 "status": status_name,  # Get status name from Status model
@@ -1726,6 +1730,7 @@ class AppointmentListView(APIView):
                 "stylist_id": stylist_id,
                 "payment_status": payment_status  
             })
+
 
         # Return paginated response
         return paginator.get_paginated_response(data)
