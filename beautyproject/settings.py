@@ -103,16 +103,30 @@ WSGI_APPLICATION = 'beautyproject.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'md2025',  # Replace with your PostgreSQL database name
+#         'USER': 'mdadmin_2025',       # Replace with your PostgreSQL username
+#         'PASSWORD': 'Psd@2025',   # Replace with your PostgreSQL password
+#         'HOST': 'md2025.postgres.database.azure.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
+#         'PORT': '5432',                # Default PostgreSQL port is 5432
+#     }
+# }
+
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'md2025',  # Replace with your PostgreSQL database name
-        'USER': 'mdadmin_2025',       # Replace with your PostgreSQL username
-        'PASSWORD': 'Psd@2025',   # Replace with your PostgreSQL password
-        'HOST': 'md2025.postgres.database.azure.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
+        'NAME': 'mdlive',  # Replace with your PostgreSQL database name
+        'USER': 'mindfullive',       # Replace with your PostgreSQL username
+        'PASSWORD': 'mdpsd@2025',   # Replace with your PostgreSQL password
+        'HOST': 'mindfullive.postgres.database.azure.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
         'PORT': '5432',                # Default PostgreSQL port is 5432
     }
 }
+
+
 
 # DATABASES = {
 #     'default': {
