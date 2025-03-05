@@ -604,7 +604,7 @@ class ReviewStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=[(0, 'Inactive'), (1, 'Active')])
 
 class AddPackageServiceSerializer(serializers.ModelSerializer):
-    selected_service_ids = serializers.CharField(  # Accept as a string
+    selected_service_ids = serializers.CharField(
         write_only=True,
         required=False  
     )
@@ -620,23 +620,24 @@ class AddPackageServiceSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = Services
+        model = Serviceprovidertype
         fields = [
             'price',
             'status',
-            'provider',
+            'provider_id',
             'package_services',
             'selected_service_ids',
             'package_name',
             'branch_id',
-            'package_services_ids',  # Add the new field
+            'package_services_ids',  
+            'service_type',
         ]
 
     def create(self, validated_data):
         selected_service_ids = validated_data.pop('selected_service_ids', None)
         package_name = validated_data.pop('package_name', None)
         branch_id = validated_data.pop('branch_id', None)
-        provider = validated_data.get('provider')
+        provider_id = validated_data.get('provider_id')
 
         selected_service_ids_list = []
         if selected_service_ids:
@@ -645,12 +646,11 @@ class AddPackageServiceSerializer(serializers.ModelSerializer):
             except ValueError:
                 raise serializers.ValidationError({"selected_service_ids": "Service IDs must be a comma-separated list of integers."})
 
-            # Retrieve service names from the database
             service_names = Services.objects.filter(service_id__in=selected_service_ids_list).values_list('service_name', flat=True)
             validated_data['package_services'] = ', '.join(service_names)
 
         if package_name:
-            validated_data['service_name'] = package_name
+            validated_data['package_name'] = package_name
 
         if branch_id:
             try:
@@ -661,27 +661,25 @@ class AddPackageServiceSerializer(serializers.ModelSerializer):
 
         validated_data['service_type'] = 1  
 
-        existing_instance = Services.objects.filter(
-            provider=provider,
-            service_name=package_name,
+        existing_instance = Serviceprovidertype.objects.filter(
+            provider_id=provider_id,
+            package_name=package_name,
             branch_id=branch_id
         ).first()
 
         if existing_instance:
             for key, value in validated_data.items():
                 setattr(existing_instance, key, value)
-            existing_instance.package_services_ids = ', '.join(map(str, selected_service_ids_list))  # Store IDs
+            existing_instance.package_services_ids = ', '.join(map(str, selected_service_ids_list))  
             existing_instance.save()
             return existing_instance
 
         validated_data['package_services_ids'] = ', '.join(map(str, selected_service_ids_list))
-        return Services.objects.create(**validated_data)
-
+        return Serviceprovidertype.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
-        # Update logic for existing instances
         if 'package_name' in validated_data:
-            instance.service_name = validated_data.pop('package_name')
+            instance.package_name = validated_data.pop('package_name')
 
         if 'branch_id' in validated_data:
             branch_id = validated_data.pop('branch_id')
@@ -704,7 +702,6 @@ class AddPackageServiceSerializer(serializers.ModelSerializer):
         for key, value in validated_data.items():
             setattr(instance, key, value)
 
-        # After updating the instance, store the updated `package_services_ids`
         if 'selected_service_ids' in validated_data:
             instance.package_services_ids = ', '.join(map(str, selected_service_ids_list))
 
@@ -712,26 +709,23 @@ class AddPackageServiceSerializer(serializers.ModelSerializer):
         return instance
 
     def to_representation(self, instance):
-        """Ensure all required details are included in the response."""
         data = super().to_representation(instance)
-        data['service_id'] = instance.service_id
-        data['package_name'] = instance.service_name  
+        data['provider_service_id'] = instance.provider_service_id
+        data['package_name'] = instance.package_name  
         data['branch_id'] = instance.branch_id  
         return data
 
 
 class PackagesSerializer(serializers.ModelSerializer):
-    package_id = serializers.IntegerField(source='service_id')  # Alias service_id as package_id
-    package_name = serializers.CharField(source='service_name')  # Alias service_name as package_name
-    package_services = serializers.CharField()  # Assuming this is stored as a comma-separated string
-    price = serializers.DecimalField(max_digits=10, decimal_places=2)  # Assuming price is a decimal field
-    status = serializers.CharField()  # Assuming status is a char field
-    is_deleted = serializers.BooleanField()  # Assuming is_deleted is a boolean field
+    package_id = serializers.IntegerField(source='provider_service_id')  # Correct field mapping
+    package_services = serializers.CharField()  
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    status = serializers.CharField()
+    is_deleted = serializers.BooleanField()
 
     class Meta:
-        model = Services
+        model = Serviceprovidertype  # Ensure correct model is referenced
         fields = ['package_id', 'package_name', 'package_services', 'price', 'status', 'is_deleted']
-
 
 class AdminUserSerializer(serializers.ModelSerializer):
     class Meta:

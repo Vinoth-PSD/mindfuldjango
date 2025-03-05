@@ -2616,7 +2616,7 @@ class CreditsView(APIView):
         except ServiceProvider.DoesNotExist:
             return Response({'error': 'Provider not found'}, status=status.HTTP_404_NOT_FOUND)
 
-#Package Management
+# Package Management
 class PackageDetailsView(APIView):
     def get(self, request):
         provider_id = request.query_params.get('provider_id')
@@ -2626,29 +2626,30 @@ class PackageDetailsView(APIView):
         if not provider_id:
             return Response({"status": "error", "message": "provider_id is required"}, status=400)
 
-        # Base filter with provider_id and is_deleted = False
-        filters = {"provider_id": provider_id, "is_deleted": False}
+        # Base filter with provider_id, is_deleted=False, and service_type=1
+        filters = {"provider_id": provider_id, "is_deleted": False, "service_type": 1}
 
         # Add branch_id filter if provided
         if branch_id:
             filters["branch_id"] = branch_id
 
         # Filter services based on the constructed filters
-        services = Services.objects.filter(**filters)
+        services = Serviceprovidertype.objects.filter(**filters)
 
         # Apply search filter if search_query is provided
         if search_query:
             services = services.filter(
-                Q(service_name__icontains=search_query) |  
+                Q(service_id__service_name__icontains=search_query) |  
                 Q(package_services__icontains=search_query)
             )
 
-        # Order by descending service_id (recently added first)
-        services = services.order_by('-service_id')
+        # Order by descending provider_service_id (recently added first)
+        services = services.order_by('-provider_service_id')
 
         # Select required fields
         services = services.values(
-            'service_id', 'service_name', 'price', 'package_services', 'status', 'is_deleted'
+            'provider_service_id', 'package_name', 'price', 
+            'package_services', 'status', 'is_deleted'
         )
 
         # Apply pagination
@@ -2662,6 +2663,8 @@ class PackageDetailsView(APIView):
             "data": paginated_services
         })
 
+
+
 #Add Packages
 class AddPackageServiceView(APIView):
     def post(self, request):
@@ -2673,7 +2676,7 @@ class AddPackageServiceView(APIView):
                 "status": "success",
                 "message": "Package service added successfully",
                 "data": {
-                    "package_id": instance.service_id,  # Return service_id as package_id
+                    "package_id": instance.provider_service_id,  # Return provider_service_id as package_id
                     **serializer.to_representation(instance)  # Include other serialized data
                 }
             }, status=status.HTTP_201_CREATED)
@@ -2687,18 +2690,18 @@ class AddPackageServiceView(APIView):
 #Edit Packages
 class EditPackageServiceView(APIView):
     def put(self, request):
-        # Extract service_id from the request data
-        service_id = request.data.get("service_id")
-        if not service_id:
+        # Extract provider_service_id from the request data
+        provider_service_id = request.data.get("provider_service_id")
+        if not provider_service_id:
             return Response({
                 "status": "error",
-                "message": "Service ID is required"
+                "message": "Provider Service ID is required"
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Fetch the package service by service_id
-            package_service = Services.objects.get(service_id=service_id)
-        except Services.DoesNotExist:
+            # Fetch the package service by provider_service_id
+            package_service = Serviceprovidertype.objects.get(provider_service_id=provider_service_id)
+        except Serviceprovidertype.DoesNotExist:
             return Response({
                 "status": "error",
                 "message": "Package service not found"
@@ -2741,18 +2744,19 @@ class EditPackageServiceView(APIView):
 #Delete Packages
 class DeletePackageServiceView(APIView):
     def delete(self, request):
-        # Extract service_id from the request data
-        service_id = request.data.get("service_id")
-        if not service_id:
+        # Extract provider_service_id from the request data
+        provider_service_id = request.data.get("provider_service_id")
+        
+        if not provider_service_id:
             return Response({
                 "status": "error",
-                "message": "Service ID is required"
+                "message": "Provider Service ID is required"
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Fetch the package service by service_id
-            package_service = Services.objects.get(service_id=service_id)
-        except Services.DoesNotExist:
+            # Fetch the package service by provider_service_id
+            package_service = Serviceprovidertype.objects.get(provider_service_id=provider_service_id)
+        except Serviceprovidertype.DoesNotExist:
             return Response({
                 "status": "error",
                 "message": "Package service not found"
@@ -2768,11 +2772,9 @@ class DeletePackageServiceView(APIView):
         }, status=status.HTTP_200_OK)
 
 
-
-#Active Packages
+# Active Packages
 class ActivePackagesByProviderView(APIView):
     def get(self, request):
-        # Retrieve provider_id and optional branch_id from query parameters
         provider_id = request.query_params.get('provider_id', None)
         branch_id = request.query_params.get('branch_id', None)
 
@@ -2782,18 +2784,18 @@ class ActivePackagesByProviderView(APIView):
                 "message": "provider_id is required"
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Base query filter
+        # Base query filter (Include only `service_type=1`)
         filters = {
             "provider_id": provider_id,
-            "is_deleted": False
+            "is_deleted": False,
+            "service_type": 1  # Ensuring only type 1 packages
         }
 
-        # Apply branch_id filter only if provided
         if branch_id:
             filters["branch_id"] = branch_id
 
-        # Filter the active packages
-        active_packages = Services.objects.filter(**filters)
+        # Fetch active packages from Serviceprovidertype (Not directly from Services)
+        active_packages = Serviceprovidertype.objects.filter(**filters)
 
         if not active_packages.exists():
             return Response({
@@ -2801,58 +2803,50 @@ class ActivePackagesByProviderView(APIView):
                 "message": "No active packages found for the given provider"
             }, status=status.HTTP_404_NOT_FOUND)
 
-        # Serialize the active packages
         serializer = PackagesSerializer(active_packages, many=True)
-
         return Response({
             "status": "success",
             "message": "Active packages retrieved successfully",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
 
-#Update Active Packages   
+
+# Update Active Packages
 class UpdateActivePackagesView(APIView):
     def put(self, request):
-        # Get package data from request body
         packages = request.data.get("packages", [])
 
-        # Handle case where packages are sent as a string
         if isinstance(packages, str):
             try:
-                packages = json.loads(packages)  # Parse the string into a list of objects
+                packages = json.loads(packages)
             except json.JSONDecodeError:
                 return Response({
                     "status": "error",
                     "message": "Invalid packages format. Must be a JSON array of objects."
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate that packages are in the correct structure
         if not isinstance(packages, list):
             return Response({
                 "status": "error",
                 "message": "packages must be a list of objects"
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Iterate through the packages and update
         updated_count = 0
         for package in packages:
             package_id = package.get("package_id")
             if not package_id:
                 continue
 
-            # Fetch the service by package_id
             try:
-                service = Services.objects.get(service_id=package_id)
-            except Services.DoesNotExist:
+                service = Serviceprovidertype.objects.get(provider_service_id=package_id)
+            except Serviceprovidertype.DoesNotExist:
                 continue
 
-            # Update fields if they are provided
             if "price" in package:
                 service.price = package["price"]
             if "is_deleted" in package:
                 service.is_deleted = package["is_deleted"]
 
-            # Save the updated service
             service.save()
             updated_count += 1
 
@@ -2866,7 +2860,6 @@ class UpdateActivePackagesView(APIView):
             "status": "success",
             "message": "Packages updated successfully"
         }, status=status.HTTP_200_OK)
-
 
 
 #Get provider List   

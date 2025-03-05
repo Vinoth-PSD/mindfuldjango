@@ -223,8 +223,6 @@ class Services(models.Model):
     image = models.ImageField(upload_to='service_images/',null=True, blank=True)
     sku_value= models.CharField(max_length=255,null=True)
     service_time = models.CharField(max_length=50, null=True, blank=True)
-    service_type = models.IntegerField(null=True, blank=True)  
-    package_services = models.TextField(null=True, blank=True) 
     is_deleted = models.BooleanField(default=False)  
  
 
@@ -370,6 +368,11 @@ class Serviceprovidertype(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2,null=True, blank=True)
     duration = models.IntegerField(null=True, blank=True)  # Duration in minutes
     status = models.CharField(max_length=20, default='Active')
+    is_deleted = models.BooleanField(default=False)  
+    package_services = models.TextField(null=True, blank=True)
+    package_services_ids = models.TextField(null=True, blank=True) 
+    service_type = models.IntegerField(null=True, blank=True)  
+    package_name = models.CharField(max_length=255, null=True, blank=True)  
 
     def get_provider_services_with_cursor(self, service_id, lat, lng, radius, service_type_id=None, category_id=None):
      # Haversine formula using latitude and longitude
@@ -876,81 +879,60 @@ SELECT
       return reviews
 
 
-
     
-    def get_provider_packages(self, provider_id, branch_id ,service_type=1):
-     # Base query part
-     base_query = """
-     SELECT 
-         s.service_id,
-         s.service_name,
-         s.image AS service_image,
-         s.price AS service_price,
-         s.status,
-         s.package_services
-     """
- 
-     # Extend query based on service_type
-     if service_type == 1:
-         query = base_query + """
-         FROM 
-             beautyapp_services s
-         WHERE 
-             s.service_type = 1 
-             AND s.provider_id = %s 
-             AND s.branch_id = %s
-             AND s.is_deleted = false 
-             AND s.status = 'Active'
-         """
-     elif service_type == 2:
-         query = base_query + """
-         FROM 
-             beautyapp_services s
-         WHERE 
-             s.service_type = 2 
-             AND s.provider_id = %s 
-             AND s.branch_id = %s 
-             AND s.is_deleted = false 
-             AND s.status = 'Active'
-         """
-     else:
-         raise ValueError("Invalid service_type. It must be 1 or 2.")
-     
-     data = []  # Initialize data to an empty list
- 
-     try:
-         with connection.cursor() as cursor:
-             cursor.execute(query, [provider_id , branch_id])  # Using parameterized query to avoid SQL injection
-             results = cursor.fetchall()
- 
-             if results:  # Check if any rows are returned
-                 columns = [col[0] for col in cursor.description]
- 
-                 for row in results:
-                     row_dict = dict(zip(columns, row))
- 
-                     # Append the base URL and media URL to service_image if it exists
-                     service_image = row_dict.get('service_image')
-                     if service_image:
-                         row_dict['service_image'] = f"{settings.MEDIA_URL}{service_image}"
- 
-                     # Handle package_services, checking if it exists
-                     package_services = row_dict.get('package_services')
-                     if package_services:
-                         print(f"Raw package_services: {package_services}")  # Debugging output
-                         row_dict['package_services'] = package_services.split(', ')  # Splitting by comma
-                         # Also adding service_name as package_name
-                         row_dict['package_name'] = row_dict['service_name']
-                     else:
-                         row_dict['package_services'] = []  # If package_services is None, set it as an empty list
-                         row_dict['package_name'] = row_dict['service_name']  # No package_services, assign service_name as package_name
- 
-                     data.append(row_dict)
- 
-     except Exception as e:
-         raise Exception(f"Error fetching provider services: {str(e)}")
- 
-     return data
+    def get_provider_packages(self, provider_id=1, branch_id=1, service_type=1):
+      query = """
+      SELECT 
+          ps.provider_service_id AS service_id,
+          ps.service_type,   -- Ensure service_type is retrieved from the correct table
+          ps.price AS service_price,
+          ps.status,
+          ps.package_services,
+          ps.package_name
+      FROM 
+          beautyapp_serviceprovidertype ps
+      WHERE 
+          ps.provider_id_id = %s
+          AND ps.branch_id = %s
+          AND ps.service_type = %s  -- Ensure service_type is filtered correctly
+          AND (ps.is_deleted = false OR ps.is_deleted IS NULL)
+          AND (ps.status = 'Active' OR ps.status IS NULL)
+      """
+  
+      data = []
+  
+      try:
+          with connection.cursor() as cursor:
+              cursor.execute(query, [provider_id, branch_id, service_type])
+              results = cursor.fetchall()
+  
+              if results:
+                  columns = [col[0] for col in cursor.description]
+  
+                  for row in results:
+                      row_dict = dict(zip(columns, row))
+  
+                      # Handle package_services as a list
+                      package_services = row_dict.get('package_services')
+                      row_dict['package_services'] = package_services.split(', ') if package_services else []
+  
+                      # Assign package_name if missing
+                      row_dict['package_name'] = row_dict.get('package_name') or "Default Package Name"
+  
+                      data.append(row_dict)
+  
+      except Exception as e:
+          return {
+              "status": "failure",
+              "message": "Failed to retrieve service provider packages",
+              "error": str(e),
+              "data": []
+          }
+  
+      return data
+
+
+
 
 
     def get_frequently_used_services(self,provider_id , branch_id):

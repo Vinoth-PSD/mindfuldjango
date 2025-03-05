@@ -278,14 +278,7 @@ class Services(models.Model):
     image = models.ImageField(upload_to='service_images/',storage=AzureMediaStorage(), null=True, blank=True)
     sku_value = models.CharField(max_length=255, null=True)
     service_time = models.CharField(max_length=50, null=True, blank=True)
-    service_type = models.IntegerField(null=True, blank=True)
-    package_services = models.TextField(null=True, blank=True)
-    provider= models.ForeignKey(ServiceProvider, on_delete=models.CASCADE)
-    branch = models.ForeignKey(Branches, on_delete=models.CASCADE, null=True, blank=True)  
-    package_services_ids = models.TextField(null=True, blank=True)  # New field for storing service IDs
     is_deleted = models.BooleanField(default=False)  
-
-
 
 
     class Meta:
@@ -306,6 +299,12 @@ class Serviceprovidertype(models.Model):
     duration = models.CharField(max_length=50, null=True, blank=True)  # Store duration as a string
     status = models.CharField(max_length=20, default='Active')
     is_deleted = models.BooleanField(default=False)  # New field to handle soft deletion
+    package_services = models.TextField(null=True, blank=True)
+    package_services_ids = models.TextField(null=True, blank=True)  # For storing service IDs
+    service_type = models.IntegerField(null=True, blank=True)  # For categorizing service types
+    package_name = models.CharField(max_length=255, null=True, blank=True)  # New field for package name
+
+
 
 
     class Meta:
