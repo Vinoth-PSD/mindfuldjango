@@ -1276,6 +1276,7 @@ class AddToCartAPIView(APIView):
 class BookingListAPIView(APIView):
     def get(self, request):
         provider_id = request.query_params.get("provider_id")
+        branch_id = request.query_params.get("provider_id")
         sort_order = request.query_params.get("sort_order", "desc")
 
         if not provider_id:
@@ -1284,19 +1285,36 @@ class BookingListAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        if not branch_id:
+            return Response(
+                {"status": "error", "message": "Branch ID is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
             provider_id = int(provider_id)
+            branch_id = int(branch_id)
             now = datetime.now()
             order_by_field = "-appointment_id" if sort_order == "desc" else "appointment_id"
 
+            # bookings = (
+            #     Appointment.objects.filter(
+            #         provider_id=provider_id,
+            #         status_id=0,
+            #         appointment_date__gte=now.date(),
+            #     )
+            #     .exclude(branch__isnull=True)  # Ensure branch exists
+            #     .select_related("branch")  # Optimize DB queries
+            #     .order_by(order_by_field)
+            # )
             bookings = (
                 Appointment.objects.filter(
                     provider_id=provider_id,
+                    branch_id=branch_id,
                     status_id=0,
                     appointment_date__gte=now.date(),
                 )
                 .exclude(branch__isnull=True)  # Ensure branch exists
-                .select_related("branch")  # Optimize DB queries
                 .order_by(order_by_field)
             )
 

@@ -72,7 +72,17 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
     #  else:
             # Create a new branch if not found
     
-     branch_name ='Main Branch'
+     service_type_id = getattr(service_type, 'service_type_id', None)  # Change 'id' to correct field
+     print('Extracted service_type:', service_type)  # Debugging
+     
+     if service_type_id==1:         
+        branch_name =provider_name +' Main Branch'
+
+     else:
+        branch_name = provider_name
+
+     print('branch_name',branch_name)
+     print('provider name',provider_name)
     #  if service_type == 1:
     #      branch_name = 'Main Branch'
     #  elif service_type == 2  and provider_name:
@@ -87,13 +97,17 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
  
      # Create the ServiceProvider instance
      service_provider = ServiceProvider.objects.create(**validated_data)
+
+     print('provider type',service_provider.service_type)
  
      # Store the provider_id in the Branches table
-     if service_provider.service_type==2:
+    #  if service_provider.service_type==2:
+       
+    #    print('freelancer',service_provider.name)
 
-       branch_name= service_provider.name 
+    #    branch_name= service_provider.name 
           
-     branch.branch_name=branch_name
+    #  branch.branch_name=branch_name
      branch.provider_id = service_provider.provider_id
      branch.save()
  

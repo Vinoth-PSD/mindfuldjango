@@ -1603,26 +1603,74 @@ class AppointmentListView(APIView):
 
     def get(self, request, *args, **kwargs):
         provider_id = request.GET.get('provider_id')
+        branch_id = request.GET.get('branch_id')
         status_filter = request.GET.get('status')  # Get optional status filter
         search_query = request.GET.get('search', '')  # Optional search query
 
-        # Ensure provider_id is provided
+
+        # Ensure provider_id and branch_id are provided
         if not provider_id:
             return JsonResponse(
                 {"status": "error", "message": "provider_id is required"},
                 status=400
             )
+        if not branch_id:
+            return JsonResponse(
+                {"status": "error", "message": "branch_id is required"},
+                status=400
+            )
 
-        # Filter appointments based on provider_id and optional status filter
+        provider_id = int(provider_id)
+        branch_id = int(branch_id)
+
+        # Check if this is a main branch
+        is_main_branch = ServiceProvider.objects.filter(provider_id=provider_id, branch_id=branch_id).exists()
+
+        if not is_main_branch:
+            # Ensure the branch exists
+            if not Branches.objects.filter(branch_id=branch_id).exists():
+                return JsonResponse(
+                    {"status": "error", "message": "Invalid provider_id or branch_id"},
+                    status=400
+                )
+
+        # Filter appointments based on main branch or specific branch
+        filter_conditions = {"provider_id": provider_id}
+        if not is_main_branch:
+            filter_conditions["branch_id"] = branch_id  # Filter specific branch
+
         if status_filter:
-            appointments = Appointment.objects.filter(
-                provider_id=provider_id,
-                status__status_id=status_filter
-            ).exclude(status__status_id=0).select_related('branch__location').order_by('-appointment_id')
-        else:
-            appointments = Appointment.objects.filter(
-                provider_id=provider_id
-            ).exclude(status__status_id=0).select_related('branch__location').order_by('-appointment_id')
+            filter_conditions["status__status_id"] = status_filter
+
+        appointments = (
+            Appointment.objects.filter(**filter_conditions)
+            .exclude(status__status_id=0)
+            .select_related("branch__location")
+            .order_by("-appointment_id")
+        )
+
+
+
+
+
+        # # Ensure provider_id is provided
+        # if not provider_id:
+        #     return JsonResponse(
+        #         {"status": "error", "message": "provider_id is required"},
+        #         status=400
+        #     )
+
+        # # Filter appointments based on provider_id and optional status filter
+        # if status_filter:
+        #     appointments = Appointment.objects.filter(
+        #         provider_id=provider_id,
+        #         status__status_id=status_filter
+        #     ).exclude(status__status_id=0).select_related('branch__location').order_by('-appointment_id')
+        # else:
+        #     appointments = Appointment.objects.filter(
+        #         provider_id=provider_id
+        #     ).exclude(status__status_id=0).select_related('branch__location').order_by('-appointment_id')
+
 
         if search_query:
             # Get matching service IDs
@@ -2068,6 +2116,7 @@ class AssignStylistView(APIView):
 class SalesTransactionAPIView(APIView, CustomPagination):
     def get(self, request):
         provider_id = request.query_params.get('provider_id')
+        branch_id = request.query_params.get('branch_id')
         appointment_id = request.query_params.get('appointment_id')
         customer_query = request.query_params.get('customer_query')  # Can be customer_name or mobile_number
         start_date = request.query_params.get('start_date')
@@ -2075,7 +2124,17 @@ class SalesTransactionAPIView(APIView, CustomPagination):
         branch_query = request.query_params.get('branch_query')  # Can be branch_name or branch_phone
 
         if not provider_id:
-            return JsonResponse({"error": "Provider ID is required"}, status=400)
+            return JsonResponse({"error": "provider_id is required"}, status=400)
+        if not branch_id:
+            return JsonResponse({"error": "branch_id is required"}, status=400)
+        
+        is_main_branch = ServiceProvider.objects.filter(provider_id=provider_id, branch_id=branch_id).exists()
+
+        if not is_main_branch:
+            if not Branches.objects.filter(branch_id=branch_id).exists():
+                return JsonResponse(
+                    {"error": "Invalid provider_id or branch_id"}, status=400
+                )
 
         query = """
             SELECT 
@@ -2107,6 +2166,10 @@ class SalesTransactionAPIView(APIView, CustomPagination):
         if appointment_id:
             query += " AND a.appointment_id = %s"
             params.append(appointment_id)
+        
+        if not is_main_branch:
+            query += " AND a.branch_id = %s"
+            params.append(branch_id)
 
         if customer_query:
             if customer_query.isdigit():  # If numeric, assume it's a phone number
@@ -5458,6 +5521,7 @@ class CancelAppointmentByProviderAPIView(APIView):
 class ProviderCategoryView(APIView):
     def get(self, request):
         provider_id = request.GET.get('provider_id')  # Get provider_id from query params
+        branch_id = request.GET.get('branch_id')
 
         if not provider_id:
             return Response({
@@ -5466,10 +5530,18 @@ class ProviderCategoryView(APIView):
                 "data": []
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        if not branch_id:
+            return Response({
+                "status": "error",
+                "message": "branch_id is required",
+                "data": []
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             # Step 1: Get service IDs for the provider where status='Active' and is_deleted=False
             service_ids = Serviceprovidertype.objects.filter(
                 provider_id=provider_id,
+                branch_id=branch_id,
                 status='Active',
                 is_deleted=False
             ).values_list('service_id', flat=True)
