@@ -826,37 +826,41 @@ class BranchDetailView(APIView):
      # Update related location fields if provided
      if 'location' in data:
          city_name = data.get('location')
-         try:
+         branchdet = Branches.objects.filter(branch_id=branch_id).first()
+         #try:
              # Retrieve the first location matching the city name
-             location = Locations.objects.filter(city=city_name).first()
-             if not location:
-                 return Response(
-                     {"status": "error", "error": f"Location with city name '{city_name}' not found."}, 
-                     status=status.HTTP_400_BAD_REQUEST
-                 )
+         location = Locations.objects.filter(location_id=branchdet.location_id).first()
+        #  if not location:
+        #          return Response(
+        #              {"status": "error", "error": f"Location with city name '{city_name}' not found."}, 
+        #              status=status.HTTP_400_BAD_REQUEST
+        #          )
              
              # Update location details if 'branch_address' is provided
-             if 'branch_address' in data:
-                 location.address_line1 = data.get('branch_address')
- 
-             # Update latitude and longitude if provided
-             latitude = data.get('latitude')
-             longitude = data.get('longitude')
- 
-             if latitude is not None:
-                 location.latitude = latitude
-             if longitude is not None:
-                 location.longitude = longitude
- 
-             location.save()  # Save updated location
+         if 'branch_address' in data:
+                    location.address_line1 = data.get('branch_address')
+                    
+    
+                # Update latitude and longitude if provided
+         latitude = data.get('latitude')
+         longitude = data.get('longitude')
+
+         if latitude is not None:
+                location.latitude = latitude
+         if longitude is not None:
+               location.longitude = longitude
+         if city_name is not None:
+               location.city = city_name
+
+         location.save()  # Save updated location
              
              # Use location_id for updating the branch
-             data['location'] = location.location_id
-         except Exception as e:
-             return Response(
-                 {"status": "error", "error": f"Error updating location: {str(e)}"}, 
-                 status=status.HTTP_400_BAD_REQUEST
-             )
+         data['location'] = location.location_id
+        #  except Exception as e:
+        #      return Response(
+        #          {"status": "error", "error": f"Error updating location: {str(e)}"}, 
+        #          status=status.HTTP_400_BAD_REQUEST
+        #      )
  
      # Serialize and update branch
      serializer = BranchesSerializer(branch, data=data, partial=True)
