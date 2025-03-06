@@ -1276,7 +1276,7 @@ class AddToCartAPIView(APIView):
 class BookingListAPIView(APIView):
     def get(self, request):
         provider_id = request.query_params.get("provider_id")
-        branch_id = request.query_params.get("provider_id")
+        branch_id = request.query_params.get("branch_id")
         sort_order = request.query_params.get("sort_order", "desc")
 
         if not provider_id:
