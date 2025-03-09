@@ -557,6 +557,7 @@ SELECT
           sp.provider_id,
           sp.name AS provider_name,
           sp.image_url,
+          sp.service_type_id,
           loc.latitude AS provider_latitude,
           loc.longitude AS provider_longitude,
           loc.city AS provider_city,
@@ -835,8 +836,10 @@ SELECT
         try:
             provider = ServiceProvider.objects.select_related('address').get(provider_id=provider_id)
 
-            overview_data = {
-                'business_summary': provider.business_summary,
+            business_summary = f"Established on: {str(provider.established_on)}<br>Facilities: {str(provider.salon_facilities)}"
+
+            overview_data = {   
+                'business_summary': business_summary,
                 'gender_type': provider.gender_type,
                 'timings': provider.timings,
                 'latitude': provider.address.latitude,
