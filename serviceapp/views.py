@@ -189,7 +189,8 @@ class LoginViewSet(viewsets.ModelViewSet):
                  # Fetch provider and role information
                  provider_entry = getattr(otp_target, 'provider', None)
                  role_entry = getattr(otp_target, 'role', None)
-                 branches = Branches.objects.get(branch_id=provider_entry.branch_id)
+                #  branches = Branches.objects.get(branch_id=provider_entry.branch_id)
+                 branches = Branches.objects.get(branch_id=otp_target.branch_id)
              
              
                  response_data.update({

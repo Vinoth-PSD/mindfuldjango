@@ -557,7 +557,10 @@ SELECT
           sp.provider_id,
           sp.name AS provider_name,
           sp.image_url,
-          sp.service_type_id,
+          CASE 
+            WHEN sp.service_type_id = 1 THEN 'Salon Service'
+            WHEN sp.service_type_id = 2 THEN 'Home Service'
+            END AS service_type,
           loc.latitude AS provider_latitude,
           loc.longitude AS provider_longitude,
           loc.city AS provider_city,
