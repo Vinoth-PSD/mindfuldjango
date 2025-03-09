@@ -63,6 +63,8 @@ class ServiceProvider(models.Model):
     rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=20, default='Active')
     working_hours = models.TextField(null=True, blank=True)
+    languages_spoken = models.TextField(null=True, blank=True)
+    travel_capability_kms = models.IntegerField(null=True, blank=True)
     available_slots = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
