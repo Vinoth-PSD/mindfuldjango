@@ -422,7 +422,7 @@ SELECT
      Branches br
  JOIN ServiceProviders sp ON br.provider_id = sp.provider_id  
  JOIN 
-     beautyapp_serviceprovidertype ps ON sp.provider_id = ps.provider_id_id
+     beautyapp_serviceprovidertype ps ON br.branch_id = ps.branch_id
  JOIN 
      beautyapp_Services s ON ps.service_id_id = s.service_id
  LEFT JOIN 
