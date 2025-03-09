@@ -836,7 +836,11 @@ SELECT
         try:
             provider = ServiceProvider.objects.select_related('address').get(provider_id=provider_id)
 
-            business_summary = f"Established on: {str(provider.established_on)}<br>Facilities: {str(provider.salon_facilities)}"
+            if provider.service_type_id == 2:
+
+                business_summary = f"Established on: {str(provider.established_on)}<br>Facilities: {str(provider.salon_facilities)}"
+            else:
+                business_summary = f"Having {str(provider.years_of_experience)} years of experience<br>Languages Spoken: {str(provider.languages_spoken)}<br>Travel Capability: {str(provider.travel_capability_kms)} km"
 
             overview_data = {   
                 'business_summary': business_summary,
