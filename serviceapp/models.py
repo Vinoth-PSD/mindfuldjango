@@ -124,9 +124,9 @@ class Meta:
 class ProviderBankDetails(models.Model):
     id = models.AutoField(primary_key=True)
     provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE)
-    account_holder_name = models.CharField(max_length=255)
-    bank_name = models.CharField(max_length=255)
-    bank_account_number = models.CharField(max_length=50)
+    account_holder_name = models.CharField(max_length=255,null=True, blank=True)
+    bank_name = models.CharField(max_length=255,null=True, blank=True)
+    bank_account_number = models.CharField(max_length=50 , null=True, blank=True)
     account_type = models.CharField(max_length=50, null=True, blank=True)
     bank_branch = models.CharField(max_length=255, null=True, blank=True)
     ifsc_code = models.CharField(max_length=20, null=True, blank=True)
@@ -144,14 +144,14 @@ def get_provider_upload_to(instance, filename):
 class ProviderTaxRegistration(models.Model):
     id = models.AutoField(primary_key=True)
     provider = models.ForeignKey('ServiceProvider', on_delete=models.CASCADE)
-    tax_identification_number = models.CharField(max_length=50)
+    tax_identification_number = models.CharField(max_length=50,null=True, blank=True)
     tax_file = models.FileField(upload_to=get_provider_upload_to, storage=AzureMediaStorage(),null=True, blank=True)
-    gst_number = models.CharField(max_length=50)
+    gst_number = models.CharField(max_length=50,null=True, blank=True)
     gst_file = models.FileField(upload_to=get_provider_upload_to, storage=AzureMediaStorage(),null=True, blank=True)
-    proof_of_identity_type = models.CharField(max_length=50)
-    proof_of_identity_number = models.CharField(max_length=50)
+    proof_of_identity_type = models.CharField(max_length=50,null=True, blank=True)
+    proof_of_identity_number = models.CharField(max_length=50,null=True, blank=True)
     identity_file = models.FileField(upload_to=get_provider_upload_to, storage=AzureMediaStorage(),null=True, blank=True)
-    proof_of_address_type = models.CharField(max_length=50)
+    proof_of_address_type = models.CharField(max_length=50,null=True, blank=True)
     address_file = models.FileField(upload_to=get_provider_upload_to, storage=AzureMediaStorage(),null=True, blank=True)
 
     class Meta:
