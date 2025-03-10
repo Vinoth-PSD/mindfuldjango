@@ -465,10 +465,11 @@ class BranchListSerializer(serializers.ModelSerializer):
     provider_id = serializers.SerializerMethodField()
     latitude = serializers.SerializerMethodField()
     longitude = serializers.SerializerMethodField()
+    staff = serializers.SerializerMethodField() 
 
     class Meta:
         model = Branches
-        fields = ['branch_id', 'branch_name', 'phone', 'location', 'latitude', 'longitude', 'logo', 'provider_id']
+        fields = ['branch_id', 'branch_name', 'phone', 'location', 'latitude', 'longitude', 'logo', 'provider_id', 'staff']
 
     def get_location(self, obj):
         try:
@@ -501,6 +502,16 @@ class BranchListSerializer(serializers.ModelSerializer):
             return None
         except AttributeError:
             return None
+    
+    def get_staff(self, obj):
+        staff = Staff.objects.filter(branch=obj,role=3).first()  # Get one staff record
+        if staff:
+            return {
+                'name': staff.name,
+                'phone': staff.phone,
+                'role': staff.role.role_name if staff.role else None  # Assuming role is a related model
+            }
+        return {'name': '', 'phone': '', 'role': ''}  # Return empty details if no staff exists
 
 
         
