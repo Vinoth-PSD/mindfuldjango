@@ -201,7 +201,9 @@ class LoginViewSet(viewsets.ModelViewSet):
                      'branch_id': otp_target.branch_id if otp_target else None,
                      'branch_online_status': branches.service_status if provider_entry else None,
                      'permissions': permissions_data,
-                     'main_branch':False
+                     'main_branch':False,
+                     'freelancer':False,
+                     'image_url':provider_entry.image_url.url if provider_entry.image_url else None,
                      
                  })
 
