@@ -63,6 +63,7 @@ class ServiceProvider(models.Model):
     rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=20, default='Active')
     working_hours = models.TextField(null=True, blank=True)
+    salon_facilities = models.TextField(null=True, blank=True)
     languages_spoken = models.TextField(null=True, blank=True)
     travel_capability_kms = models.IntegerField(null=True, blank=True)
     available_slots = models.JSONField(null=True, blank=True)
@@ -842,7 +843,7 @@ SELECT
         try:
             provider = ServiceProvider.objects.select_related('address').get(provider_id=provider_id)
 
-            if provider.service_type_id == 2:
+            if provider.service_type_id == 1:
 
                 business_summary = f"Established on: {str(provider.established_on)}<br>Facilities: {str(provider.salon_facilities)}"
             else:
