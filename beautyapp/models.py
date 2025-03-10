@@ -66,6 +66,7 @@ class ServiceProvider(models.Model):
     languages_spoken = models.TextField(null=True, blank=True)
     travel_capability_kms = models.IntegerField(null=True, blank=True)
     available_slots = models.JSONField(null=True, blank=True)
+    established_on= models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     image_url = models.ImageField(upload_to='provider_images/', null=True, blank=True)
