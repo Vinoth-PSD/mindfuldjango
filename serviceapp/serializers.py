@@ -473,7 +473,7 @@ class BranchListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Branches
-        fields = ['branch_id', 'branch_name', 'phone', 'location', 'latitude', 'longitude', 'logo', 'provider_id', 'staff']
+        fields = ['branch_id', 'branch_name', 'phone', 'location', 'latitude', 'longitude', 'logo', 'provider_id', 'staff','service_status']
 
     def get_location(self, obj):
         try:
