@@ -1293,7 +1293,7 @@ class ProviderServicesView(APIView):
             branch_id = int(branch_id)
 
             # Filter services based on provider_id and optionally branch_id
-            filters = {"provider_id": provider_id, "is_deleted": False}
+            filters = {"provider_id": provider_id, "is_deleted": False , "service_id__isnull": False }
             if branch_id != 0:  # Only apply branch_id filter if it's not 0
                 filters["branch_id"] = branch_id
 
