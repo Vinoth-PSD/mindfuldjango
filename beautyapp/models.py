@@ -439,9 +439,9 @@ SELECT
      if service_id is not None and int(service_id) != 0:
         # print(service_id)
         # print(5454545)
-        query += "WHERE s.service_id = %s "     
+        query += "WHERE s.service_id = %s AND sp.available_credits > 1000 "     
      else:
-        query += "WHERE s.category_id = %s "
+        query += "WHERE s.category_id = %s AND sp.available_credits > 1000 "
      
      # Exclude service_type_id filter if it's 3
      if service_type_id and int(service_type_id) != 3:
