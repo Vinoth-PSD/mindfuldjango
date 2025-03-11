@@ -354,6 +354,8 @@ class ProviderTaxRegistrationSerializer(serializers.ModelSerializer):
     gst_file = serializers.FileField(required=False, allow_null=True)
     identity_file = serializers.FileField(required=False, allow_null=True)
     address_file = serializers.FileField(required=False, allow_null=True)
+    proof_of_identity_number = serializers.CharField(required=False, allow_null=True)
+    proof_of_address_type = serializers.CharField(required=False, allow_null=True)
 
     class Meta:
         model = ProviderTaxRegistration
