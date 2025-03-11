@@ -16,6 +16,7 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
     location = serializers.CharField(write_only=True)
     latitude = serializers.FloatField(required=False, allow_null=True, write_only=True)
     longitude = serializers.FloatField(required=False, allow_null=True, write_only=True)
+    city = serializers.CharField(required=False, write_only=True) 
     provider_id = serializers.IntegerField(read_only=True)
 
 
@@ -23,7 +24,7 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
         model = ServiceProvider
         fields = [
             'provider_id', 'name', 'email', 'phone', 'service_type',
-            'location', 'latitude', 'longitude'
+            'location', 'latitude', 'longitude' , 'city'
         ]
         extra_kwargs = {
             'email': {'required': True},
@@ -39,21 +40,22 @@ class ServiceProvidersSerializer(serializers.ModelSerializer):
      service_type = validated_data.get('service_type') 
      provider_name = validated_data.get('name') 
      phone = validated_data.get('phone')  
+     city = validated_data.pop('city', None)  
 
  
      # Check if location already exists
-     location = Locations.objects.filter(city=location_name).order_by('location_id').first()
+    #  location = Locations.objects.filter(city=location_name).order_by('location_id').first()
  
-     if location:
-         # Update the existing location
-         location.latitude = latitude if latitude is not None else location.latitude
-         location.longitude = longitude if longitude is not None else location.longitude
-         location.save()
-     else:
+    #  if location:
+    #      # Update the existing location
+    #      location.latitude = latitude if latitude is not None else location.latitude
+    #      location.longitude = longitude if longitude is not None else location.longitude
+    #      location.save()
+    #  else:
          # Create a new location if not found
-         location = Locations.objects.create(
-             city=location_name,
-             address_line1='',
+     location = Locations.objects.create(
+             city=city,
+             address_line1=location_name,
              address_line2='',
              state='',
              postal_code=0,

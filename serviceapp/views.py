@@ -725,6 +725,7 @@ class BranchListCreateView(APIView):
         logo = request.data.get('logo')
         latitude = request.data.get('latitude')  # Optional field
         longitude = request.data.get('longitude')  # Optional field
+        city = request.data.get('city')
 
         # Validate `provider_id`
         if not provider_id:
@@ -750,7 +751,8 @@ class BranchListCreateView(APIView):
 
          # Ensure location exists and retrieve its ID, including optional latitude & longitude
         location, created = Locations.objects.get_or_create(
-            city=branch_location,
+            #city=branch_location,
+            city=city,
             address_line1=branch_address,
             defaults={
                 "address_line2": "",
@@ -829,8 +831,9 @@ class BranchDetailView(APIView):
          data.update(request.FILES)
  
      # Update related location fields if provided
-     if 'location' in data:
-         city_name = data.get('location')
+     if 'city' in data:
+        #  city_name = data.get('location')
+         city_name = data.get('city')
          branchdet = Branches.objects.filter(branch_id=branch_id).first()
          #try:
              # Retrieve the first location matching the city name
