@@ -1203,6 +1203,7 @@ class AddToCartAPIView(APIView):
         appointment_time = request.data.get('appointment_time')
         branch_id = request.data.get('branch_id')
         quantity = request.data.get('quantity')
+        reference_image = request.FILES.get('reference_image',None) 
 
         # Ensure all required fields are provided
         if not all([user_id, provider_id, service_ids, appointment_date, appointment_time, quantity]):
@@ -1256,7 +1257,8 @@ class AddToCartAPIView(APIView):
                     appointment_time=appointment_time_24hr,  # Save in 24-hour format
                     status=status_obj,
                     branch_id=branch_id,
-                    quantity=quantity_string
+                    quantity=quantity_string,
+                    reference_image=reference_image if reference_image else None
                 )
 
             # Return the appointment ID in the response
@@ -1439,6 +1441,7 @@ class ProviderActionAPIView(APIView):
                     {"status": "success", "message": f"Appointment {action}d successfully"},
                     status=status.HTTP_200_OK
                 )
+            
 
         except Appointment.DoesNotExist:
             return Response(
@@ -1493,8 +1496,8 @@ class DeclineAppointmentMessageAPIView(APIView):
             email_status = "No email sent"  # Default email status
 
             # Send cancellation email to the user
-            subject = "Your Appointment Has Been Cancelled"
-
+            subject = "Mindful Beauty Your Appointment Has Been Cancelled"
+            
             # HTML Email Template
             email_body = format_html(
                 """
