@@ -118,10 +118,10 @@ WSGI_APPLICATION = 'beautyproject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'mdlive',  # Replace with your PostgreSQL database name
-        'USER': 'mindfullive',       # Replace with your PostgreSQL username
-        'PASSWORD': 'mdpsd@2025',   # Replace with your PostgreSQL password
-        'HOST': 'mindfullive.postgres.database.azure.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
+        'NAME': 'mdlatestlive',  # Replace with your PostgreSQL database name
+        'USER': 'mdlatestlive',       # Replace with your PostgreSQL username
+        'PASSWORD': 'Mindfulpsd@2025',   # Replace with your PostgreSQL password
+        'HOST': 'mdlatestlive.postgres.database.azure.com',           # Replace with your PostgreSQL host, e.g., 'localhost' or an IP address
         'PORT': '5432',                # Default PostgreSQL port is 5432
     }
 }
