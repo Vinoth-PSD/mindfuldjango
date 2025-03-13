@@ -1788,7 +1788,8 @@ class AppointmentListView(APIView):
                 "location": city,  
                 "stylist": stylist_name, 
                 "stylist_id": stylist_id,
-                "payment_status": payment_status  
+                "payment_status": payment_status  ,
+                "reference_image": settings.MEDIA_URL + str(appointment.reference_image) if appointment.reference_image else None 
             })
 
 
@@ -3301,8 +3302,16 @@ class UploadProviderFiles(APIView):
         
         # Update provider image
         if 'image_url' in request.FILES:
+            
+            
+            
+            
+            
+            
             provider.image_url = request.FILES['image_url']
             provider.save()
+
+
 
         tax_record = get_object_or_404(ProviderTaxRegistration, id=tax_id, provider_id=provider_id)
 
