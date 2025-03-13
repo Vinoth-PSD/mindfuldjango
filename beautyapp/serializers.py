@@ -24,6 +24,7 @@ from .models import Coupon
 from .models import ServiceFAQ
 from .models import BeautyAppPackage
 from .models import Message,CallbackRequest,Newsletter,ContactForm,Branches
+from django.conf import settings
 
 
 
@@ -291,6 +292,11 @@ class AppointmentSerializer(serializers.ModelSerializer):
             except Staff.DoesNotExist:
                 return None
         return None
+    def get_reference_image(self, obj):
+        """Fetch reference image from table."""
+       
+        return settings.MEDIA_URL + str(obj.reference_image)
+
 
 
 class MessageSerializer(serializers.ModelSerializer):
