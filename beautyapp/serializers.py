@@ -227,6 +227,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
     stylist_name = serializers.SerializerMethodField()  # Add stylist name
     stylist_id = serializers.SerializerMethodField()  # Add stylist_id field
     stylist_photo = serializers.SerializerMethodField()  # Add stylist photo field
+    reference_image = serializers.SerializerMethodField() 
 
 
     class Meta:
@@ -243,6 +244,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'stylist_name',  # Add stylist name to fields
             'stylist_id',  # Add stylist_id to fields
             'stylist_photo',  # Include stylist photo
+            'reference_image',
 
         ]
 
