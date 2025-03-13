@@ -294,9 +294,11 @@ class AppointmentSerializer(serializers.ModelSerializer):
         return None
     def get_reference_image(self, obj):
         """Fetch reference image from table."""
-       
-        return settings.MEDIA_URL + str(obj.reference_image)
-
+        
+        if obj.reference_image:  # Check if reference_image is not None or empty
+            return settings.MEDIA_URL + str(obj.reference_image)
+        
+        return ""  # Return empty value if reference_image is null/empty
 
 
 class MessageSerializer(serializers.ModelSerializer):
