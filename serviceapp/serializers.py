@@ -3,6 +3,7 @@ from .models import ServiceProvider,ProviderBankDetails,ProviderTaxRegistration,
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from datetime import datetime, date
+from django.conf import settings
 
 
 
@@ -833,7 +834,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
     stylist_photo = serializers.SerializerMethodField()  # Add stylist photo field
     provider_id = serializers.SerializerMethodField()  # Add provider_id
     provider_name = serializers.SerializerMethodField()  # Add provider_name
-
+    reference_image = serializers.SerializerMethodField()
+    
     class Meta:
         model = Appointment
         fields = [
@@ -850,6 +852,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'stylist_photo',  
             'provider_id',  # Include provider_id
             'provider_name',  # Include provider_name
+            'reference_image',
         ]
 
     def get_service_names(self, obj):
@@ -899,6 +902,13 @@ class AppointmentSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'provider') and obj.provider:
             return obj.provider.name  # Assuming 'provider' is a ForeignKey to a Provider model
         return None
+    def get_reference_image(self, obj):
+        """Fetch reference image from table."""
+        
+        if obj.reference_image:  # Check if reference_image is not None or empty
+            return settings.MEDIA_URL + str(obj.reference_image)
+        
+        return ""  # Return empty value if reference_image is null/empty
 
     
 class SubcategoriesSerializer(serializers.ModelSerializer):
