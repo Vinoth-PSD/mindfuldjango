@@ -357,12 +357,13 @@ class BookingSerializer(serializers.ModelSerializer):
     payment_amount = serializers.SerializerMethodField()
     formatted_date = serializers.SerializerMethodField()
     formatted_time = serializers.SerializerMethodField()
+    reason = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
         fields = [
             'appointment_id', 'formatted_date', 'formatted_time', 'branch_name', 
-            'services', 'stylist_name', 'status_name', 'username', 'payment_amount'
+            'services', 'stylist_name', 'status_name', 'username', 'payment_amount','reason'
         ]
 
     def get_formatted_date(self, obj):
