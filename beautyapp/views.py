@@ -1833,7 +1833,7 @@ class UserBookingsAPIView(APIView):
         if user_id:
             # Filter appointments for the user where otp is not null and not zero
             # Order the results by 'created_at' field in descending order
-            bookings = Appointment.objects.filter(user_id=user_id).exclude(otp__isnull=True).exclude(otp=0).order_by('-created_at')
+            bookings = Appointment.objects.filter(user_id=user_id).exclude(otp=0).order_by('-created_at')
             serializer = BookingSerializer(bookings, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
