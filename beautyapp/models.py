@@ -1007,9 +1007,9 @@ SELECT
             row_dict = dict(zip(columns, row))
 
             # Append base URL to service_image if it exists
-            service_image = row_dict.get('service_image')
+            service_image = row_dict.get('image')
             if service_image:
-                row_dict['service_image'] = f"{settings.MEDIA_URL}{service_image}"
+                row_dict['image'] = f"{settings.MEDIA_URL}{service_image}"
 
             data.append(row_dict)
 
