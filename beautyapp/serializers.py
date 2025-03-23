@@ -400,6 +400,9 @@ class BookingSerializer(serializers.ModelSerializer):
       if payment:
           return payment.grand_total
       return None
+    
+    def get_reason(self, obj):
+        return obj.reason
 
 class UsersSerializer(serializers.ModelSerializer):
     dob = serializers.DateField(
