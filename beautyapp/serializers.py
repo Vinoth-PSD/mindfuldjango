@@ -358,6 +358,7 @@ class BookingSerializer(serializers.ModelSerializer):
     formatted_date = serializers.SerializerMethodField()
     formatted_time = serializers.SerializerMethodField()
     reason = serializers.SerializerMethodField()
+    message = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
@@ -402,7 +403,15 @@ class BookingSerializer(serializers.ModelSerializer):
       return None
     
     def get_reason(self, obj):
-        return obj.reason
+        if obj.reason is not None:
+            return obj.reason
+
+        # Fetch message text using message_id
+        message_txt = Message.objects.filter(message_id=obj.message).first()
+
+        return message_txt.text if message_txt else None
+
+
 
 class UsersSerializer(serializers.ModelSerializer):
     dob = serializers.DateField(
