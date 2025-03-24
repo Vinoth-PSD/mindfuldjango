@@ -358,7 +358,7 @@ class BookingSerializer(serializers.ModelSerializer):
     formatted_date = serializers.SerializerMethodField()
     formatted_time = serializers.SerializerMethodField()
     reason = serializers.SerializerMethodField()
-    message = serializers.SerializerMethodField()
+    # message = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
