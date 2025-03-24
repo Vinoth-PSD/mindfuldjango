@@ -658,11 +658,11 @@ SELECT
  
      params = [prioritize_service_id, branch_id]
  
-     if category_id:
+     if category_id and category_id !=0 :
          query += " AND s.category_id = %s"
          params.append(category_id)
  
-     if subcategory_id:
+     if subcategory_id and subcategory_id !=0 :
          query += " AND s.subcategory_id = %s"
          params.append(subcategory_id)
  
