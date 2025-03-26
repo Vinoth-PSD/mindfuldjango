@@ -127,7 +127,7 @@ class LoginViewSet(viewsets.ModelViewSet):
 
   
       # Log the SMS API response (optional)
-      print(f"SMS API Response: {sms_response}")
+    #   print(f"SMS API Response: {sms_response}")
   
       return Response({'status': 'success', 'otp': otp, 'message': message}, status=status.HTTP_200_OK)
 
