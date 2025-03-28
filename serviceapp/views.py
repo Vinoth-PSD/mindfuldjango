@@ -5221,7 +5221,7 @@ class ProviderWalletManagementView(APIView):
         # Fetch all transactions in a single query
         transactions = ProviderTransactions.objects.filter(
             provider_id__in=provider_ids, status="Success"
-        ).values('provider_id').annotate(total_credits=Sum('total_amount'))
+        ).values('provider_id').annotate(total_credits=Sum('amount'))
 
         transactions_dict = {t['provider_id']: t['total_credits'] or Decimal(0) for t in transactions}
 
