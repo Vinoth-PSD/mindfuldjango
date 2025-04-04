@@ -221,6 +221,7 @@ REST_FRAMEWORK = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
     "https://gray-desert-0c1e9470f.4.azurestaticapps.net",
     "https://services.mindfulbeauty.ai",
     "https://admin.mindfulbeauty.ai",
