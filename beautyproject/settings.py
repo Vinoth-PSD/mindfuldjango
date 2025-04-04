@@ -33,7 +33,7 @@ SECRET_KEY = 'django-insecure-6$_i8h@r7817=w4*7t$lg2)y5=hs*3os!1^gm*n9bp2rswc7ug
 DEBUG = True
 
 # ALLOWED_HOSTS = ['*'] 
-ALLOWED_HOSTS = ['gray-desert-0c1e9470f.4.azurestaticapps.net', 'services.mindfulbeauty.ai','admin.mindfulbeauty.ai', 'mindfulbeauty.ai','localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['mbrestapi-f8cphtgaf7fjdyb0.westcentralus-01.azurewebsites.net','gray-desert-0c1e9470f.4.azurestaticapps.net', 'services.mindfulbeauty.ai','admin.mindfulbeauty.ai', 'mindfulbeauty.ai','localhost', '127.0.0.1']
 
 
 GOOGLE_MAPS_API_KEY = 'AIzaSyAJMgVfZLEI4QjXqVEQocAmgByXIKgwKwQ'
