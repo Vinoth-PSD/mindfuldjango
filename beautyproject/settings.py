@@ -221,8 +221,11 @@ REST_FRAMEWORK = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
-    
-    'http://localhost:5173'
+    "https://gray-desert-0c1e9470f.4.azurestaticapps.net",
+    "https://services.mindfulbeauty.ai",
+    "https://admin.mindfulbeauty.ai",
+    "https://mindfulbeauty.ai",
+    "http://localhost:3000",  # React app running locally
 ]
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
