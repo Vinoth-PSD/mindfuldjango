@@ -2144,10 +2144,11 @@ class AppointmentDetailsAPIView(APIView):
             placeholders = ','.join(['%s'] * len(provider_service_ids))
 
             print('placeholders',placeholders)
-
+            
             query = f"""
                 SELECT
-                    spt.provider_service_id AS service_id,
+                    spt.provider_service_id,
+                    spt.service_id_id AS service_id, 
                     srv.service_name AS serviceName,
                     srv.description AS serviceDesc,
                     spt.price AS price,
