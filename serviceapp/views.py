@@ -5591,3 +5591,55 @@ class ProviderCategoryView(APIView):
                 "message": str(e),
                 "data": []
             }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DashboardActiveStatusAPIView(APIView):
+    def get(self, request):
+        try:
+            # Total customers (all users)
+            total_customers = User.objects.count()
+
+            # Active Customers: users who have logged in at least once
+            active_customers = User.objects.filter(
+                last_login__isnull=False
+            ).count()
+
+            # Active Services: not deleted and status is 'Active'
+            active_services = Services.objects.filter(
+                status='Active',
+                is_deleted=False
+            ).count()
+
+            # Active Salons: service_type_id = 1
+            active_saloons = ServiceProvider.objects.filter(
+                status='Active',
+                is_deleted=False,
+                service_type__service_type_id=1
+            ).count()
+
+            # Active Freelancers: service_type_id = 2
+            active_freelancers = ServiceProvider.objects.filter(
+                status='Active',
+                is_deleted=False,
+                service_type__service_type_id=2
+            ).count()
+
+            return Response({
+                "status": "success",
+                "message": "Dashboard data fetched successfully",
+                "data": {
+                    "total_customers": total_customers,
+                    "no_of_services": active_services,
+                    "saloons": active_saloons,
+                    "freelancers": active_freelancers
+                }
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "status": "error",
+                "message": str(e),
+                "data": {}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
