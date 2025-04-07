@@ -25,7 +25,7 @@ from .models import ServiceFAQ
 from .models import BeautyAppPackage
 from .models import Message,CallbackRequest,Newsletter,ContactForm,Branches
 from django.conf import settings
-
+from rest_framework import serializers
 
 
 class LoginSerializer(serializers.ModelSerializer):
@@ -441,8 +441,3 @@ class ContactFormSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContactForm
         fields = ['name', 'email', 'message']
-
-
-
-
-

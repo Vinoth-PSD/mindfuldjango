@@ -86,6 +86,12 @@ from django.core.mail import send_mail
 from django.utils.html import format_html
 from django.db.models import DecimalField, F, Sum
 
+from rest_framework import generics, status
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .models import  Payment, ServiceProvider, Services, Branches
+from rest_framework.permissions import AllowAny
+
 
 class LoginViewSet(viewsets.ModelViewSet):
     queryset = Login.objects.all()
@@ -2096,3 +2102,99 @@ class CancelBookingAPIView(APIView):
 
         except Appointment.DoesNotExist:
             return Response({"error": "Appointment not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class AppointmentDetailsAPIView(APIView):
+    def get(self, request, appointment_id, format=None):
+        """
+        Retrieve service details for a given appointment ID
+        """
+        try:
+            # Step 1: Get the service_id_new (comma-separated string)
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT service_id_new,provider_id,branch_id
+                    FROM beautyapp_appointment
+                    WHERE appointment_id = %s
+                """, [appointment_id])
+                row = cursor.fetchone()
+
+            print('row[0]',row[0])
+
+            if not row or not row[0]:
+                return Response([], status=status.HTTP_200_OK)
+
+            service_id_list_raw = row[0]  # e.g. "12,34,56"
+            provider_id = row[1]
+            branch_id = row[2]
+            
+            
+            # Step 2: Split and clean up the IDs
+            try:
+                provider_service_ids = [int(sid.strip()) for sid in service_id_list_raw.split(',') if sid.strip().isdigit()]
+                print('service_id_list_raw',service_id_list_raw)
+            except Exception as e:
+                return Response([], status=status.HTTP_200_OK)
+
+            if not provider_service_ids:
+                print('service_id_list_raw',service_id_list_raw)
+                return Response([], status=status.HTTP_200_OK)
+
+            # Step 3: Dynamically generate placeholders for SQL IN clause
+            placeholders = ','.join(['%s'] * len(provider_service_ids))
+
+            print('placeholders',placeholders)
+
+            query = f"""
+                SELECT
+                    spt.provider_service_id AS service_id,
+                    srv.service_name AS serviceName,
+                    srv.description AS serviceDesc,
+                    spt.price AS price,
+                    srv.image,
+                    srv.service_time,
+                    spt.branch_id AS branch_id,
+                    spt.provider_id_id AS provider_id
+                FROM
+                    beautyapp_serviceprovidertype spt
+                JOIN
+                    beautyapp_services srv ON spt.service_id_id = srv.service_id
+                WHERE
+                    spt.service_id_id IN ({placeholders})
+                    AND spt.provider_id_id= %s
+					AND spt.branch_id= %s
+                    AND spt.is_deleted = FALSE
+                    AND srv.is_deleted = FALSE
+            """
+            all_params = provider_service_ids + [provider_id, branch_id]
+            with connection.cursor() as cursor:
+                cursor.execute(query, all_params)
+                results = cursor.fetchall()
+                columns = [col[0] for col in cursor.description]
+
+            data = []
+            for row in results:
+                row_dict = dict(zip(columns, row))
+                image_path = row_dict.get('image')
+                if image_path:
+                    row_dict['image'] = f"{settings.MEDIA_URL}{image_path}"
+                row_dict.pop("branch_id", None)
+                row_dict.pop("provider_id", None) 
+                data.append(row_dict)
+
+
+            
+            response = {
+                "provider_id": provider_id,
+                "branch_id": branch_id,
+                "services": data
+            }
+
+
+            return Response(response , status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
