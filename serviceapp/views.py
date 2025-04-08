@@ -681,21 +681,20 @@ class CustomPagination(PageNumberPagination):
 #Branch Management
 class BranchListView(APIView):
     def get(self, request, provider_id=None):
-        # Get the search parameter from the request
         search_query = request.query_params.get('search', None)
 
-        # Retrieve branches filtered by provider_id if provided
+        # Filter branches
         if provider_id:
             branch_queryset = Branches.objects.filter(
                 provider__provider_id=provider_id,
                 is_deleted=False
-            ).order_by("-branch_id")  # Order by branch_id (recently added first)
+            ).order_by("-branch_id")
         else:
             branch_queryset = Branches.objects.filter(
                 is_deleted=False
-            ).order_by("-branch_id")  # Order by branch_id (recently added first)
+            ).order_by("-branch_id")
 
-        # Apply search if a search query is provided
+        # Apply search
         if search_query:
             branch_queryset = branch_queryset.filter(
                 Q(branch_name__icontains=search_query) |
@@ -703,15 +702,34 @@ class BranchListView(APIView):
                 Q(location__city__icontains=search_query)
             )
 
-        # Serialize the data without pagination
-        serializer = BranchListSerializer(branch_queryset, many=True)
+        main_branches = []
+        sub_branches = []
 
-        # Custom response format
+        for branch in branch_queryset:
+            provider = branch.provider
+            is_main_branch = (
+                provider.branch_id == branch.branch_id
+                if provider.branch_id is not None else False
+            )
+
+            serialized_branch = BranchListSerializer(branch).data
+            serialized_branch["is_main_branch"] = is_main_branch
+
+            if is_main_branch:
+                main_branches.append(serialized_branch)
+            else:
+                sub_branches.append(serialized_branch)
+
+        # Combine: main branches first, then sub-branches
+        sorted_data = main_branches + sub_branches
+
         return Response({
             "status": "success",
             "message": "Branches fetched successfully",
-            "data": serializer.data
+            "data": sorted_data
         }, status=status.HTTP_200_OK)
+
+
 
 
 class BranchListCreateView(APIView):
