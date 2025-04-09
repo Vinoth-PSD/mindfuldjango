@@ -410,6 +410,7 @@ SELECT
      sp.business_summary,
      sp.gender_type,
      sp.timings,
+     sp.working_hours,
      s.service_name,
      s.service_id,
      ps.price,
@@ -466,7 +467,7 @@ SELECT
      br.branch_id, br.branch_name, 
      branch_loc.latitude, branch_loc.longitude, branch_loc.city, branch_loc.state, 
      sp.provider_id, sp.name, sp.rating, sp.image_url, sp.business_summary,
-     sp.gender_type, sp.timings, s.service_name, s.service_id, ps.price,
+     sp.gender_type, sp.timings,sp.working_hours,s.service_name, s.service_id, ps.price,
      st.service_type_id
      HAVING 
          {haversine_formula} <= %s  -- Apply radius filter in kilometers
@@ -1277,3 +1278,4 @@ class Role(models.Model):
 
     def __str__(self):
         return self.role_name
+    
