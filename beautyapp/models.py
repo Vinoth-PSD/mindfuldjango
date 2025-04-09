@@ -854,6 +854,7 @@ SELECT
                 'business_summary': business_summary,
                 'gender_type': provider.gender_type,
                 'timings': provider.timings,
+                'Working_hours':provider.working_hours,
                 'latitude': provider.address.latitude,
                 'longitude': provider.address.longitude
             }
