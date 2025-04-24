@@ -2090,8 +2090,8 @@ class CancelBookingAPIView(APIView):
             now = timezone.now()
             time_difference = appointment_datetime - now
 
-            if time_difference < timedelta(hours=5):
-                return Response({"error": "Cancellation is only allowed up to 5 hours before the appointment time."}, status=status.HTTP_400_BAD_REQUEST)
+            if time_difference < timedelta(hours=3):
+                return Response({"error": "Cancellations can be made up to 3 hours before the appointment time."}, status=status.HTTP_400_BAD_REQUEST)
 
             # Update appointment status to 'Cancelled' and store reason
             appointment.status_id = 4  
