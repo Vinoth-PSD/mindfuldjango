@@ -1800,11 +1800,35 @@ class NewsletterSubscriptionAPIView(APIView):
 
 
 #Get city name
+# class CityViewSet(viewsets.ViewSet):
+#     def list(self, request):
+#         cities = Locations.objects.annotate(city_length=Length('city')).filter(city_length__gt=4).values_list('city', flat=True).distinct()
+#         return Response({"cities": cities})
+    
+
+
 class CityViewSet(viewsets.ViewSet):
     def list(self, request):
-        cities = Locations.objects.annotate(city_length=Length('city')).filter(city_length__gt=4).values_list('city', flat=True).distinct()
-        return Response({"cities": cities})
-    
+        from collections import OrderedDict
+        cities = Locations.objects.annotate(
+            city_length=Length('city')
+        ).filter(
+            city_length__gt=4
+        ).filter(
+            Q(serviceprovider__status='Active', serviceprovider__is_deleted=False) |
+            Q(branches__service_status=1)
+        ).distinct().values_list('city', flat=True)
+
+        normalized = [city.split(',')[0].strip() for city in cities]
+
+        # Remove duplicates while preserving order
+        unique_cities = list(OrderedDict.fromkeys(normalized))
+
+        return Response({"cities": unique_cities})
+
+        # return Response({"cities": cities})
+
+
 
 #Get review with counting and rating
 class ProvidersReviewViewSet(viewsets.ViewSet):
