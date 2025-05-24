@@ -4401,6 +4401,8 @@ class ReviewListView(APIView, PageNumberPagination):  # Use APIView, No Router R
                     for service in service_objects
                 ]
 
+                review.provider_name = review.provider.name if review.provider else None
+
         # Apply pagination
         paginated_reviews = self.paginate_queryset(reviews, request, view=self)
         serializer = ReviewSerializer(paginated_reviews, many=True)

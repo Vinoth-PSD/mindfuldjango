@@ -524,6 +524,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     created_at_formatted = serializers.SerializerMethodField()
     customer_name = serializers.SerializerMethodField()
     service_objects = serializers.SerializerMethodField()
+    provider_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
@@ -537,9 +538,13 @@ class ReviewSerializer(serializers.ModelSerializer):
             "rating",
             "comment",
             "service_objects",
-            "status"
+            "status",
+            "provider_name"
         ]
-
+    
+    def get_provider_name(self, obj):
+        return getattr(obj, 'provider_name', None)
+    
     def get_customer_name(self, obj):
         try:
             user = User.objects.get(user_id=obj.user_id)
