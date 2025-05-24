@@ -1959,7 +1959,7 @@ class RecommendedProvidersView(APIView):
             
             # Filter providers by service type, if specified
             if service_type_id:
-                providers_query = providers_query.filter(provider__service_type=service_type_id,  provider__is_deleted=False)
+                providers_query = providers_query.filter(provider__service_type=service_type_id, provider__status='Active', provider__is_deleted=False)
 
             # Annotate provider query with location and other details
             # providers_query = providers_query.annotate(
