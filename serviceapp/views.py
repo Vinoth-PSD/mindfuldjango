@@ -237,6 +237,7 @@ class LoginViewSet(viewsets.ModelViewSet):
                 response_data.update({
                     'provider_id': otp_target.provider_id,
                     'branch_id': otp_target.branch_id, 
+                    'branch_name': branches.branch_name, 
                     'branch_online_status': branches.service_status,
                     'image_url': otp_target.image_url.url if otp_target.image_url else None,
                     
