@@ -199,6 +199,7 @@ class LoginViewSet(viewsets.ModelViewSet):
                      'role_name': role_entry.role_name if role_entry else None,
                      'provider_id': provider_entry.provider_id if provider_entry else None,
                      'branch_id': otp_target.branch_id if otp_target else None,
+                     'branch_name': branches.branch_name, 
                      'branch_online_status': branches.service_status if provider_entry else None,
                      'permissions': permissions_data,
                      'main_branch':False,
