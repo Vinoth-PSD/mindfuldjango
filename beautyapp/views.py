@@ -1577,24 +1577,66 @@ class DeclineAppointmentMessageAPIView(APIView):
             )
 
 #Appointment status
+# class AppointmentStatusAPIView(APIView):
+#     def get(self, request):
+#         appointment_id = request.query_params.get('appointment_id')  # Get appointment_id from query parameters
+        
+#         if not appointment_id or appointment_id == '0':
+#             return Response(
+#                 {"status": "error", "message": "Appointment ID is required"},
+#                 status=status.HTTP_200_OK
+#             )
+#         try:
+#             # Fetch the appointment using the appointment_id
+#             appointment = Appointment.objects.get(appointment_id=appointment_id)
+
+#             # Return the status_id of the appointment
+#             return Response(
+#                 {"status": "success", "appointment_id": appointment_id, "status_id": appointment.status_id},
+#                 status=status.HTTP_200_OK
+#             )
+
+#         except Appointment.DoesNotExist:
+#             return Response(
+#                 {"status": "error", "message": "Appointment not found"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         except Exception as e:
+#             return Response(
+#                 {"status": "error", "message": str(e)},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+
 class AppointmentStatusAPIView(APIView):
     def get(self, request):
-        appointment_id = request.query_params.get('appointment_id')  # Get appointment_id from query parameters
-        
+        appointment_id = request.query_params.get('appointment_id')
+
         if not appointment_id or appointment_id == '0':
             return Response(
                 {"status": "error", "message": "Appointment ID is required"},
                 status=status.HTTP_200_OK
             )
+
         try:
-            # Fetch the appointment using the appointment_id
             appointment = Appointment.objects.get(appointment_id=appointment_id)
 
-            # Return the status_id of the appointment
-            return Response(
-                {"status": "success", "appointment_id": appointment_id, "status_id": appointment.status_id},
-                status=status.HTTP_200_OK
-            )
+            response_data = {
+                "status": "success",
+                "appointment_id": appointment_id,
+                "status_id": appointment.status_id
+            }
+
+            print('appointment status',appointment.status_id)
+
+            # Check if appointment_id is 4 and fetch cancellation message
+            if appointment.status_id == 4:
+                cancel_message = Message.objects.filter(message_id=appointment.message).first()
+                if cancel_message:
+                    response_data["cancellation_message"] = cancel_message.text
+
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Appointment.DoesNotExist:
             return Response(
@@ -1608,7 +1650,9 @@ class AppointmentStatusAPIView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        
+
+
+
 #OTP Verification        
 class OTPVerificationAPIView(APIView):
     def post(self, request):

@@ -1716,6 +1716,7 @@ class AppointmentListView(APIView):
 
             # Build the search filter
             appointments = appointments.filter(
+                Q(appointment_id=search_query) |
                 Q(user__name__icontains=search_query) |
                 Q(user__phone__icontains=search_query) |
                 Q(stylist__name__icontains=search_query) |
@@ -4444,6 +4445,7 @@ class AllAppointmentsListView(APIView):
             matching_service_ids = [str(service_id) for service_id in matching_service_ids]
 
             appointments = appointments.filter(
+                Q(appointment_id=search_query) |
                 Q(user__name__icontains=search_query) |
                 Q(user__phone__icontains=search_query) |
                 Q(stylist__name__icontains=search_query) |
