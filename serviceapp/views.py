@@ -3440,6 +3440,14 @@ class UpdatePaymentStatus(APIView):
         # Get the related payment
         payment = get_object_or_404(Payment, appointment=appointment)
 
+        try:
+            payment = Payment.objects.get(appointment=appointment)
+        except Payment.DoesNotExist:
+            return Response(
+                {"status": "success", "message": "No payment record found for this appointment"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
         # Validate payment status
         valid_statuses = ["Paid", "Partly Paid", "Not Paid"]
         if payment_status not in valid_statuses:
