@@ -358,58 +358,54 @@ class BookingSerializer(serializers.ModelSerializer):
     formatted_date = serializers.SerializerMethodField()
     formatted_time = serializers.SerializerMethodField()
     reason = serializers.SerializerMethodField()
-    # message = serializers.SerializerMethodField()
+    provider_id = serializers.SerializerMethodField()  # New field
 
     class Meta:
         model = Appointment
         fields = [
             'appointment_id', 'formatted_date', 'formatted_time', 'branch_name', 
-            'services', 'stylist_name', 'status_name', 'username', 'payment_amount','reason'
+            'services', 'stylist_name', 'status_name', 'username', 'payment_amount', 
+            'reason', 'provider_id'  # Add provider_id to fields
         ]
 
     def get_formatted_date(self, obj):
-        return obj.appointment_date.strftime('%d/%m/%Y')
+        return obj.appointment_date.strftime('%d/%m/%Y') if obj.appointment_date else None
 
     def get_formatted_time(self, obj):
-        return obj.appointment_time.strftime('%H:%M')
+        return obj.appointment_time.strftime('%H:%M') if obj.appointment_time else None
 
     def get_branch_name(self, obj):
-        if obj.branch:
-            return obj.branch.branch_name
-        return None
+        return obj.branch.branch_name if obj.branch else None
 
     def get_services(self, obj):
-        service_ids = obj.service_id_new.split(',')
-        services = Services.objects.filter(service_id__in=service_ids)
-        return [service.service_name for service in services]
+        if obj.service_id_new:
+            service_ids = obj.service_id_new.split(',')
+            services = Services.objects.filter(service_id__in=service_ids)
+            return [service.service_name for service in services]
+        return []
 
     def get_stylist_name(self, obj):
-        if obj.stylist:
-            return obj.stylist.name
-        return None
+        return obj.stylist.name if obj.stylist else None
 
     def get_status_name(self, obj):
-        if obj.status:
-            return obj.status.status_name
-        return None
+        return obj.status.status_name if obj.status else None
 
     def get_username(self, obj):
-        return obj.user.name  # Assuming 'name' is the field in the 'User' model
+        return obj.user.name if obj.user else None
 
     def get_payment_amount(self, obj):
-      payment = Payment.objects.filter(appointment=obj).first()
-      if payment:
-          return payment.grand_total
-      return None
-    
+        payment = Payment.objects.filter(appointment=obj).first()
+        return payment.grand_total if payment else None
+
     def get_reason(self, obj):
-        if obj.reason is not None:
+        if obj.reason:
             return obj.reason
-
-        # Fetch message text using message_id
         message_txt = Message.objects.filter(message_id=obj.message).first()
-
         return message_txt.text if message_txt else None
+
+    def get_provider_id(self, obj):
+        return obj.provider_id if obj.provider_id else None
+
 
 
 
