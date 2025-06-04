@@ -1013,3 +1013,8 @@ class CouponsSerializer(serializers.ModelSerializer):
         
         return data
     
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = '__all__'

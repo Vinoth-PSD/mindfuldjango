@@ -41,7 +41,7 @@ import csv
 import traceback
 from django.core.mail import send_mail
 from django.utils.html import format_html
-
+from .serializers import UserSerializer
 
 
 class LoginViewSet(viewsets.ModelViewSet):
@@ -5675,3 +5675,10 @@ class DashboardActiveStatusAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+#userlist
+class UserListView(generics.ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    pagination_class = CustomPagination
+    filter_backends = [SearchFilter]
+    search_fields = ['name', 'email', 'phone', 'address']
