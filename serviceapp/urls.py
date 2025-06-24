@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import LoginViewSet,RegisterServiceProvider, ProviderBankInfo,ProviderTaxInfo,ProviderGeneralInfo,RoleViewSet,StaffManagementAPIView,StaffDetailAPIView,BranchesByProviderAPIView,BranchListCreateView,BranchDetailView, BranchListView,ReviewViewSet,ServicesViewSet, AddServicesAPIView,ActiveServicesView,ProviderServicesView,EditServiceAPIView,DeleteServiceAPIView,PermissionsAPIView,RoleProviderPermissionsAPIView, AppointmentListView, StatusViewSet,CategoryViewSet,SubcategoryViewSet,ServicesByCategorySubcategoryView,UpdateActiveServicesView,BeauticianViewSet,AssignStylistView,SalesTransactionAPIView,get_invoice_view,generate_invoice_pdf,CopyBranchServicesAPIView,ModifyAppointmentStatus,ProviderTransactionListView,ReviewApprovalAPIView,AddWalletTransactionView,CreditsView,PackageDetailsView,AddPackageServiceView,EditPackageServiceView, DeletePackageServiceView,ActivePackagesByProviderView,ServiceProviderListView,ProviderDetailsView, UpdateActivePackagesView,SuperAdminLoginViewSet,UpdateServiceProviderStatus,UpdateProviderDetails,StylistListView,toggle_service_status,update_service_status,UpdatePaymentStatus,CancelAppointmentView,ProviderBranchesCityView,CreateOrderView,VerifyPaymentView,CreateWalletTransactionView,EditAppointmentView,CancelPaymentView,SuperAdminBookingListAPIView,category_list,add_category,edit_category,delete_category,get_subcategories,add_subcategory,edit_subcategory,delete_subcategory,get_services,add_service,edit_service,delete_service,ReviewListView, AllAppointmentsListView,AllSalesTransactionAPIView,CouponListAPIView,ExpiredCouponListAPIView,CouponCreateAPIView,CouponUpdateAPIView,CouponDeleteAPIView,DeleteServiceProvider,generate_sales_transaction_pdf,DownloadSalesTransactionCSVAPIView,DownloadAllSalesTransactionCSVAPIView, ProviderWalletManagementView,AddProviderCreditsView,CouponStatsAPIView,WalletManagementView,ProviderTransactionDetailAPIView, CancelAppointmentByProviderAPIView,UploadProviderFiles,ProviderCategoryView
 from .views import DashboardActiveStatusAPIView,UserListView
+from .views import CallbackRequestListView
 
 router = DefaultRouter()
 router.register(r'login', LoginViewSet, basename='login')
@@ -107,6 +108,7 @@ urlpatterns = [
     path('provider_category/', ProviderCategoryView.as_view(), name='provider-categories'),
     path('dashboard/active-status/', DashboardActiveStatusAPIView.as_view(), name='dashboard_active_status'),
     path('users/', UserListView.as_view(), name='user-list'),
+    path('callback-requests-list/', CallbackRequestListView.as_view(), name='callback-list'),
 
 
 

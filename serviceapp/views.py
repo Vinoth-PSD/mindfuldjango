@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework import status
+from rest_framework import status, generics, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import viewsets
@@ -42,6 +42,9 @@ import traceback
 from django.core.mail import send_mail
 from django.utils.html import format_html
 from .serializers import UserSerializer
+
+from beautyapp.models import CallbackRequest
+from .serializers import CallbackRequestSerializer
 
 
 class LoginViewSet(viewsets.ModelViewSet):
@@ -5682,3 +5685,38 @@ class UserListView(generics.ListAPIView):
     pagination_class = CustomPagination
     filter_backends = [SearchFilter]
     search_fields = ['name', 'email', 'phone', 'address']
+
+
+class CallbackRequestListView(generics.ListAPIView):
+    queryset = CallbackRequest.objects.all().order_by('id')
+    serializer_class = CallbackRequestSerializer
+    pagination_class = CustomPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'phone']
+
+    def list(self, request, *args, **kwargs):
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
+
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response({
+                    'status': 'success',
+                    'message': 'Callback request list fetched successfully.',
+                    'data': serializer.data
+                })
+
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({
+                'status': 'success',
+                'message': 'Callback request list fetched successfully.',
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': f'Error: {str(e)}',
+                'data': []
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

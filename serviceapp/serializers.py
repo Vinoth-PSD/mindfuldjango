@@ -4,8 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from datetime import datetime, date
 from django.conf import settings
-
-
+from beautyapp.models import CallbackRequest
 
 
 class LoginSerializer(serializers.ModelSerializer):
@@ -1018,3 +1017,12 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = '__all__'
+
+
+class CallbackRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CallbackRequest
+        fields = ['id','name', 'phone', 'user', 'status']
+        extra_kwargs = {
+            'name': {'required': True},  # Ensure name is required
+        }
