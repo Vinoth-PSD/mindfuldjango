@@ -1166,12 +1166,10 @@ class CopyBranchServicesAPIView(APIView):
     def post(self, request):
         try:
             with transaction.atomic():
-                # Extract data from the request
                 source_branch_id = request.data.get("source_branch_id")
-                target_branch_ids = request.data.get("target_branch_id")  # Comma-separated string
-                provider_id = request.data.get("provider_id")  # Optional field
+                target_branch_ids = request.data.get("target_branch_id")  # comma-separated string
+                provider_id = request.data.get("provider_id")  # optional
 
-                # Validate required parameters
                 if not all([source_branch_id, target_branch_ids]):
                     return Response(
                         {"status_code": 0, "status": "failure", "message": "Missing required fields"},
@@ -1184,7 +1182,6 @@ class CopyBranchServicesAPIView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                # Convert the comma-separated target_branch_ids to a list of integers
                 try:
                     target_branch_ids = [int(branch_id.strip()) for branch_id in target_branch_ids.split(',')]
                 except ValueError:
@@ -1193,12 +1190,12 @@ class CopyBranchServicesAPIView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                # Fetch all active services for the source branch
                 services_to_copy = Serviceprovidertype.objects.filter(
                     branch_id=source_branch_id,
                     status="Active",
                     is_deleted=False,
-                )
+                    service_id__isnull=False  # ✅ Avoid null FK errors
+                ).select_related('service_id')  # ✅ Optimize
 
                 if not services_to_copy.exists():
                     return Response(
@@ -1206,7 +1203,6 @@ class CopyBranchServicesAPIView(APIView):
                         status=status.HTTP_404_NOT_FOUND,
                     )
 
-                # Fetch the ServiceProvider instance if provider_id is provided
                 provider_instance = None
                 if provider_id:
                     try:
@@ -1217,31 +1213,17 @@ class CopyBranchServicesAPIView(APIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
-                # Create a list to store copied services
                 copied_service_ids = []
 
-                # Loop through the services and copy them to the target branches
                 for service in services_to_copy:
-                    defaults = {
-                        "price": service.price,
-                        "duration": service.duration,
-                        "status": "Active",
-                    }
-
-                    # Include the provider_instance in defaults if it's provided
-                    if provider_instance:
-                        defaults["provider_id"] = provider_instance
-
-                    # Instead of using update_or_create(), use filter to ensure unique records per branch-service pair
                     for target_branch_id in target_branch_ids:
-                        # Check if a Serviceprovidertype with the same branch_id and service_id already exists
                         existing_service = Serviceprovidertype.objects.filter(
                             branch_id=target_branch_id,
-                            service_id=service.service_id
-                        ).first()  # Use first() to ensure only one instance is fetched
+                            service_id=service.service_id,
+                            status="Active"
+                        ).first()
 
                         if existing_service:
-                            # If it exists, update it
                             existing_service.price = service.price
                             existing_service.duration = service.duration
                             existing_service.status = "Active"
@@ -1250,7 +1232,6 @@ class CopyBranchServicesAPIView(APIView):
                             existing_service.save()
                             copied_service_ids.append(existing_service.provider_service_id)
                         else:
-                            # Otherwise, create a new one
                             new_service = Serviceprovidertype.objects.create(
                                 branch_id=target_branch_id,
                                 service_id=service.service_id,
@@ -1261,23 +1242,26 @@ class CopyBranchServicesAPIView(APIView):
                             )
                             copied_service_ids.append(new_service.provider_service_id)
 
-                # Fetch the newly added/updated services for the target branches
-                copied_services = Serviceprovidertype.objects.filter(provider_service_id__in=copied_service_ids)
+                copied_services = Serviceprovidertype.objects.filter(
+                    provider_service_id__in=copied_service_ids,
+                    service_id__isnull=False
+                ).select_related('service_id', 'provider_id')
 
-                # Prepare a response with copied services details
-                services_data = [
-                    {
-                        "provider_service_id": service.provider_service_id,
-                        "service_id": service.service_id.service_id,
-                        "service_name": service.service_id.service_name,
-                        "sku_value": service.service_id.sku_value,
-                        "price": service.price,
-                        "service_time": service.duration,
-                        "status": service.status,
-                        "provider_id": service.provider_id.provider_id if service.provider_id else None,
-                    }
-                    for service in copied_services
-                ]
+                services_data = []
+                for service in copied_services:
+                    try:
+                        services_data.append({
+                            "provider_service_id": service.provider_service_id,
+                            "service_id": service.service_id.service_id,
+                            "service_name": service.service_id.service_name,
+                            "sku_value": service.service_id.sku_value,
+                            "price": float(service.price) if service.price else 0.0,
+                            "service_time": service.duration,
+                            "status": service.status,
+                            "provider_id": service.provider_id.provider_id if service.provider_id else None,
+                        })
+                    except Exception as e:
+                        continue  # Skip if any unexpected issue
 
                 return Response(
                     {
@@ -1288,6 +1272,7 @@ class CopyBranchServicesAPIView(APIView):
                     },
                     status=status.HTTP_201_CREATED,
                 )
+
         except Exception as e:
             return Response(
                 {"status_code": 0, "status": "failure", "message": str(e)},
@@ -1680,9 +1665,11 @@ class AppointmentListView(APIView):
         appointments = (
             Appointment.objects.filter(**filter_conditions)
             .exclude(status__status_id=0)
+            .filter(payment__isnull=False)  #Only include appointments with a payment record
             .select_related("branch__location")
             .order_by("-appointment_id")
         )
+
 
 
 

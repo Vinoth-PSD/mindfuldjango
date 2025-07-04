@@ -370,7 +370,7 @@ class Appointment(models.Model):
 
 class Payment(models.Model):
     payment_id = models.AutoField(primary_key=True)
-    appointment = models.ForeignKey('Appointment', on_delete=models.CASCADE)
+    appointment = models.ForeignKey('Appointment', on_delete=models.CASCADE, related_name='payment')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_date = models.DateTimeField(default=timezone.now)
     payment_status = models.CharField(max_length=20, default='Not Paid')
