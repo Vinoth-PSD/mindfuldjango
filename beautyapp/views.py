@@ -1,4 +1,4 @@
-from rest_framework import status
+from rest_framework import status, generics, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 import requests
@@ -2267,3 +2267,107 @@ class AppointmentDetailsAPIView(APIView):
                 {"error": str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+
+class NearbyPreBridalPackagesByAddressAPIView(APIView):
+    def get_lat_lng(self, address):
+        """Convert address to latitude and longitude using Google Geocoding API"""
+        api_key = 'AIzaSyAJMgVfZLEI4QjXqVEQocAmgByXIKgwKwQ'  # Replace with your actual key
+        url = 'https://maps.googleapis.com/maps/api/geocode/json'
+        params = {'address': address, 'key': api_key}
+        response = requests.get(url, params=params)
+        if response.status_code == 200:
+            results = response.json().get('results')
+            if results:
+                location = results[0]['geometry']['location']
+                return location['lat'], location['lng']
+        return None, None
+
+    def get(self, request):
+        address = request.GET.get("address")
+        radius = float(request.GET.get("radius", 25))  # Default radius: 25km
+        service_type = 1  # 1 = Pre-Bridal
+
+        if not address:
+            return Response({"error": "Address is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        lat, lng = self.get_lat_lng(address)
+        if not lat or not lng:
+            return Response({"error": "Invalid address or failed to get coordinates."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Haversine formula to calculate distance
+        haversine_formula = """
+        ROUND(
+            CAST(
+                6371 * acos(
+                    cos(radians(%s)) * cos(radians(branch_loc.latitude)) 
+                    * cos(radians(branch_loc.longitude) - radians(%s)) 
+                    + sin(radians(%s)) * sin(radians(branch_loc.latitude))
+                ) AS numeric
+            ), 1
+        )
+        """
+
+        query = f"""
+        SELECT 
+            br.branch_id,
+            br.branch_name,
+            sp.provider_id,
+            sp.name AS provider_name,
+            sp.rating,
+            sp.image_url,
+            ps.package_name,
+            ps.package_services,
+            ps.price,
+            {haversine_formula} AS distance_km
+        FROM 
+            beautyapp_serviceprovidertype ps
+        JOIN 
+            serviceproviders sp ON ps.provider_id_id = sp.provider_id
+        JOIN 
+            branches br ON ps.branch_id = br.branch_id
+        LEFT JOIN 
+            locations branch_loc ON br.location_id = branch_loc.location_id
+        WHERE 
+            ps.status = 'Active'
+            AND ps.is_deleted = FALSE
+            AND sp.status = 'Active'
+            AND sp.is_deleted = FALSE
+            AND branch_loc.latitude IS NOT NULL
+            AND branch_loc.longitude IS NOT NULL
+            AND ps.service_type = %s
+        GROUP BY 
+            br.branch_id, br.branch_name,
+            sp.provider_id, sp.name, sp.rating, sp.image_url,
+            ps.package_name, ps.package_services, ps.price,
+            branch_loc.latitude, branch_loc.longitude
+        HAVING 
+            {haversine_formula} <= %s
+        ORDER BY 
+            distance_km ASC
+        """
+
+        # Query parameters for distance and filters
+        params = [
+            lat, lng, lat,  # for distance calculation (first time)
+            service_type,
+            lat, lng, lat, radius  # for distance filtering (second time)
+        ]
+
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            results = cursor.fetchall()
+            columns = [col[0] for col in cursor.description]
+
+        # Format results
+        data = []
+        for row in results:
+            row_dict = dict(zip(columns, row))
+            if row_dict.get('image_url'):
+                row_dict['image_url'] = f"{settings.MEDIA_URL}{row_dict['image_url']}"
+            if row_dict.get('package_services'):
+                row_dict['package_services'] = row_dict['package_services'].split(', ')
+            data.append(row_dict)
+
+        return Response({"status": "success", "data": data}, status=status.HTTP_200_OK)
+
