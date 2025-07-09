@@ -2272,102 +2272,142 @@ class AppointmentDetailsAPIView(APIView):
 class NearbyPreBridalPackagesByAddressAPIView(APIView):
     def get_lat_lng(self, address):
         """Convert address to latitude and longitude using Google Geocoding API"""
-        api_key = 'AIzaSyAJMgVfZLEI4QjXqVEQocAmgByXIKgwKwQ'  # Replace with your actual key
+        api_key = 'AIzaSyAJMgVfZLEI4QjXqVEQocAmgByXIKgwKwQ'  # Replace with your actual API key
         url = 'https://maps.googleapis.com/maps/api/geocode/json'
         params = {'address': address, 'key': api_key}
         response = requests.get(url, params=params)
-        if response.status_code == 200:
-            results = response.json().get('results')
-            if results:
-                location = results[0]['geometry']['location']
-                return location['lat'], location['lng']
-        return None, None
+        result = response.json()
+
+        if result['status'] == 'OK':
+            location = result['results'][0]['geometry']['location']
+            return location['lat'], location['lng']
+        else:
+            raise ValueError("Geocoding API error: " + result.get('status'))
 
     def get(self, request):
         address = request.GET.get("address")
-        radius = float(request.GET.get("radius", 25))  # Default radius: 25km
-        service_type = 1  # 1 = Pre-Bridal
+        radius = float(request.GET.get("radius", 25))  # default: 25km
+        service_type = request.GET.get("service_type", 1)  # default: 1
 
         if not address:
-            return Response({"error": "Address is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "status": "failure",
+                "message": "Missing 'address' parameter.",
+                "data": []
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-        lat, lng = self.get_lat_lng(address)
-        if not lat or not lng:
-            return Response({"error": "Invalid address or failed to get coordinates."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            lat, lng = self.get_lat_lng(address)
 
-        # Haversine formula to calculate distance
-        haversine_formula = """
-        ROUND(
-            CAST(
-                6371 * acos(
-                    cos(radians(%s)) * cos(radians(branch_loc.latitude)) 
-                    * cos(radians(branch_loc.longitude) - radians(%s)) 
-                    + sin(radians(%s)) * sin(radians(branch_loc.latitude))
-                ) AS numeric
-            ), 1
-        )
-        """
+            haversine_formula = """
+            ROUND(
+                CAST(
+                    6371 * acos(
+                        cos(radians(%s)) * cos(radians(loc.latitude)) 
+                        * cos(radians(loc.longitude) - radians(%s)) 
+                        + sin(radians(%s)) * sin(radians(loc.latitude))
+                    ) AS numeric
+                ), 1
+            )
+            """
 
-        query = f"""
-        SELECT 
-            br.branch_id,
-            br.branch_name,
-            sp.provider_id,
-            sp.name AS provider_name,
-            sp.rating,
-            sp.image_url,
-            ps.package_name,
-            ps.package_services,
-            ps.price,
-            {haversine_formula} AS distance_km
-        FROM 
-            beautyapp_serviceprovidertype ps
-        JOIN 
-            serviceproviders sp ON ps.provider_id_id = sp.provider_id
-        JOIN 
-            branches br ON ps.branch_id = br.branch_id
-        LEFT JOIN 
-            locations branch_loc ON br.location_id = branch_loc.location_id
-        WHERE 
-            ps.status = 'Active'
-            AND ps.is_deleted = FALSE
-            AND sp.status = 'Active'
-            AND sp.is_deleted = FALSE
-            AND branch_loc.latitude IS NOT NULL
-            AND branch_loc.longitude IS NOT NULL
-            AND ps.service_type = %s
-        GROUP BY 
-            br.branch_id, br.branch_name,
-            sp.provider_id, sp.name, sp.rating, sp.image_url,
-            ps.package_name, ps.package_services, ps.price,
-            branch_loc.latitude, branch_loc.longitude
-        HAVING 
-            {haversine_formula} <= %s
-        ORDER BY 
-            distance_km ASC
-        """
+            query = f"""
+            SELECT 
+                br.branch_id,
+                br.branch_name,
+                loc.latitude AS branch_latitude,
+                loc.longitude AS branch_longitude,
+                loc.city AS branch_city,
+                loc.state AS branch_state,
+                sp.provider_id,
+                sp.name AS provider_name,
+                sp.rating,
+                sp.image_url,
+                sp.business_summary,
+                sp.gender_type,
+                sp.timings,
+                sp.working_hours,
+                ps.package_name AS service_name,
+                ps.provider_service_id AS service_id,
+                ps.price,
+                ps.service_type AS service_type_id,
+                TRUE AS verified,
+                COALESCE(rv.review_count, 0) AS review_count,
+                COALESCE(rv.average_rating, 0) AS average_rating,
+                '1234' AS otp,
+                ps.package_name AS all_services,
+                {haversine_formula} AS distance_km
+            FROM 
+                beautyapp_serviceprovidertype ps
+            JOIN 
+                serviceproviders sp ON ps.provider_id_id = sp.provider_id
+            JOIN 
+                branches br ON ps.branch_id = br.branch_id
+            LEFT JOIN 
+                locations loc ON br.location_id = loc.location_id
+            LEFT JOIN (
+                SELECT 
+                    provider_id, 
+                    COUNT(*) AS review_count,
+                    ROUND(CAST(AVG(rating) AS numeric), 1) AS average_rating
+                FROM beautyapp_review
+                WHERE status = 1
+                GROUP BY provider_id
+            ) rv ON rv.provider_id = sp.provider_id
+            WHERE 
+                ps.status = 'Active'
+                AND ps.is_deleted = FALSE
+                AND sp.status = 'Active'
+                AND sp.is_deleted = FALSE
+                AND ps.service_type IS NOT NULL
+                AND loc.latitude IS NOT NULL
+                AND loc.longitude IS NOT NULL
+                AND ps.service_type = %s
+            GROUP BY 
+                br.branch_id, br.branch_name,
+                loc.latitude, loc.longitude, loc.city, loc.state,
+                sp.provider_id, sp.name, sp.rating, sp.image_url, sp.business_summary, 
+                sp.gender_type, sp.timings, sp.working_hours,
+                ps.package_name, ps.provider_service_id, ps.price, ps.service_type,
+                rv.review_count, rv.average_rating
+            HAVING 
+                {haversine_formula} <= %s
+            ORDER BY 
+                distance_km ASC
+            """
 
-        # Query parameters for distance and filters
-        params = [
-            lat, lng, lat,  # for distance calculation (first time)
-            service_type,
-            lat, lng, lat, radius  # for distance filtering (second time)
-        ]
+            params = [
+                lat, lng, lat,        # Haversine formula set 1
+                service_type,
+                lat, lng, lat, radius  # Haversine formula set 2
+            ]
 
-        with connection.cursor() as cursor:
-            cursor.execute(query, params)
-            results = cursor.fetchall()
-            columns = [col[0] for col in cursor.description]
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+                results = cursor.fetchall()
+                columns = [col[0] for col in cursor.description]
 
-        # Format results
-        data = []
-        for row in results:
-            row_dict = dict(zip(columns, row))
-            if row_dict.get('image_url'):
-                row_dict['image_url'] = f"{settings.MEDIA_URL}{row_dict['image_url']}"
-            if row_dict.get('package_services'):
-                row_dict['package_services'] = row_dict['package_services'].split(', ')
-            data.append(row_dict)
+            data = []
+            for row in results:
+                item = dict(zip(columns, row))
+                item["image_url"] = (
+                    f"{settings.MEDIA_URL}{item['image_url']}" if item.get("image_url") else None
+                )
+                item["review_count"] = f"{item.get('review_count', 0)} reviews"
+                item["verified"] = True  # Always true as hardcoded
+                item["otp"] = "1234"
+                data.append(item)
 
-        return Response({"status": "success", "data": data}, status=status.HTTP_200_OK)
+            return Response({
+                "status": "success",
+                "message": "Filtered service provider retrieved successfully",
+                "data": data
+            }, status=status.HTTP_200_OK)
 
+        except Exception as e:
+            return Response({
+                "status": "failure",
+                "message": "Failed to retrieve service provider",
+                "error": str(e),
+                "data": []
+            }, status=status.HTTP_404_NOT_FOUND)
