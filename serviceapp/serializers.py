@@ -773,6 +773,7 @@ class ProviderDetailsSerializer(serializers.ModelSerializer):
     address = serializers.CharField(source='branch.location.address_line1', read_only=True)
     latitude = serializers.SerializerMethodField()
     longitude = serializers.SerializerMethodField()
+    established_on = serializers.DateField(required=False, allow_null=True)
 
     class Meta:
         model = ServiceProvider
