@@ -1672,28 +1672,6 @@ class AppointmentListView(APIView):
 
 
 
-
-
-
-        # # Ensure provider_id is provided
-        # if not provider_id:
-        #     return JsonResponse(
-        #         {"status": "error", "message": "provider_id is required"},
-        #         status=400
-        #     )
-
-        # # Filter appointments based on provider_id and optional status filter
-        # if status_filter:
-        #     appointments = Appointment.objects.filter(
-        #         provider_id=provider_id,
-        #         status__status_id=status_filter
-        #     ).exclude(status__status_id=0).select_related('branch__location').order_by('-appointment_id')
-        # else:
-        #     appointments = Appointment.objects.filter(
-        #         provider_id=provider_id
-        #     ).exclude(status__status_id=0).select_related('branch__location').order_by('-appointment_id')
-
-
         if search_query:
             # Get matching service IDs
             matching_service_ids = Services.objects.filter(
@@ -1716,15 +1694,19 @@ class AppointmentListView(APIView):
                 Q(appointment_time__icontains=search_query) |
                 Q(service_id_new__icontains=search_query) |  # Search raw text for IDs
                 Q(service_id_new__regex=r'(^|,)' + '|'.join(matching_service_ids) + r'(,|$)')  # Match whole service IDs
-            )
+            ).distinct()
 
         # Paginate the results
         paginator = CustomPagination()
         paginated_appointments = paginator.paginate_queryset(appointments, request)
 
-        # Serialize data into JSON-friendly format
+        # Serialize data into JSON-friendly format with duplicate prevention
         data = []
+        seen_ids = set()
         for appointment in paginated_appointments:
+            if appointment.appointment_id in seen_ids:
+                continue  # Skip duplicate
+            seen_ids.add(appointment.appointment_id)
             # Initialize service_ids safely
             service_ids = []
             if appointment.service_id_new:
