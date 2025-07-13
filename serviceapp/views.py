@@ -1698,6 +1698,7 @@ class AppointmentListView(APIView):
 
         # Paginate the results
         paginator = CustomPagination()
+        appointments = appointments.distinct('appointment_id')
         paginated_appointments = paginator.paginate_queryset(appointments, request)
 
         # Serialize data into JSON-friendly format with duplicate prevention
