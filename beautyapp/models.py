@@ -7,6 +7,8 @@ from django.conf import settings
 from django.db import connection
 from django.utils.timezone import now
 from .storages import AzureMediaStorage
+import re
+from datetime import datetime
 
 
 class Login(models.Model):
@@ -850,11 +852,57 @@ SELECT
             else:
                 business_summary = f"Having {str(provider.years_of_experience)} years of experience  Languages Spoken: {str(provider.languages_spoken)}  Travel Capability: {str(provider.travel_capability_kms)} km"
 
+
+                        # Extract compact working hours only if valid format
+            working_hours = provider.working_hours.strip() if provider.working_hours else ""
+            print("working_hours:", working_hours)
+            print("provider.working_hours:", provider.working_hours)
+
+            strict_pattern = r"^\d{2}:\d{2} - \d{2}:\d{2}$"  # Strictly "HH:MM - HH:MM"
+
+            if re.match(strict_pattern, working_hours):
+                print('Yes')
+                # Split start and end times
+                start_time, end_time = [t.strip() for t in working_hours.split(" - ")]
+
+                # Convert to AM/PM format
+                start_time_am_pm = datetime.strptime(start_time, "%H:%M").strftime("%I:%M %p")
+                end_time_am_pm = datetime.strptime(end_time, "%H:%M").strftime("%I:%M %p")
+
+                # Remove leading zero from hour if present (e.g., "09:00 AM" -> "9:00 AM")
+                start_time_am_pm = start_time_am_pm.lstrip("0")
+                end_time_am_pm = end_time_am_pm.lstrip("0")
+
+                # Generate JSON for all days
+                working_hours_str = {
+                    "Mon": f"{start_time_am_pm},{end_time_am_pm}",
+                    "Tue": f"{start_time_am_pm},{end_time_am_pm}",
+                    "Wed": f"{start_time_am_pm},{end_time_am_pm}",
+                    "Thu": f"{start_time_am_pm},{end_time_am_pm}",
+                    "Fri": f"{start_time_am_pm},{end_time_am_pm}",
+                    "Sat": f"{start_time_am_pm},{end_time_am_pm}",
+                    "Sun": f"{start_time_am_pm},{end_time_am_pm}",
+                }
+
+            else:
+                print('No')
+                working_hours_str = {
+                    "Mon": "N/A",
+                    "Tue": "N/A",
+                    "Wed": "N/A",
+                    "Thu": "N/A",
+                    "Fri": "N/A",
+                    "Sat": "N/A",
+                    "Sun": "N/A",
+                }
+
+            print('working_hours_str:', working_hours_str)
+
             overview_data = {   
                 'business_summary': business_summary,
                 'gender_type': provider.gender_type,
                 'timings': provider.timings,
-                'Working_hours':provider.working_hours,
+                'Working_hours':working_hours_str,
                 'latitude': provider.address.latitude,
                 'longitude': provider.address.longitude
             }
