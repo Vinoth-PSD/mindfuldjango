@@ -141,7 +141,7 @@ class SalonDetailsSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
      print(8541259874)  
-     required_fields = ['owner_name', 'email', 'phone', 'name', 'image_url']
+     required_fields = ['owner_name', 'email', 'phone', 'name']
      
      for field in required_fields:
          if field not in data or not data[field]:
