@@ -855,13 +855,13 @@ SELECT
 
                         # Extract compact working hours only if valid format
             working_hours = provider.working_hours.strip() if provider.working_hours else ""
-            print("working_hours:", working_hours)
-            print("provider.working_hours:", provider.working_hours)
+            # print("working_hours:", working_hours)
+            # print("provider.working_hours:", provider.working_hours)
 
             strict_pattern = r"^\d{2}:\d{2} - \d{2}:\d{2}$"  # Strictly "HH:MM - HH:MM"
 
             if re.match(strict_pattern, working_hours):
-                print('Yes')
+                # print('Yes')
                 # Split start and end times
                 start_time, end_time = [t.strip() for t in working_hours.split(" - ")]
 
@@ -896,7 +896,7 @@ SELECT
                     "Sun": "N/A",
                 }
 
-            print('working_hours_str:', working_hours_str)
+            # print('working_hours_str:', working_hours_str)
 
             overview_data = {   
                 'business_summary': business_summary,
