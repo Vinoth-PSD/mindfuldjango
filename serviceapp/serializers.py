@@ -472,14 +472,24 @@ class BranchListSerializer(serializers.ModelSerializer):
     longitude = serializers.SerializerMethodField()
     staff = serializers.SerializerMethodField() 
 
+    address_line1 = serializers.SerializerMethodField()
+
     class Meta:
         model = Branches
-        fields = ['branch_id', 'branch_name', 'phone', 'location', 'latitude', 'longitude', 'logo', 'provider_id', 'staff','service_status']
+        fields = ['branch_id', 'branch_name', 'phone','address_line1','location','latitude', 'longitude', 'logo', 'provider_id', 'staff','service_status']
 
     def get_location(self, obj):
         try:
             if obj.location:
                 return obj.location.city  # Return city name
+            return None
+        except AttributeError:
+            return None
+
+    def get_address_line1(self, obj):
+        try:
+            if obj.location and obj.location.address_line1:
+                return obj.location.address_line1
             return None
         except AttributeError:
             return None
